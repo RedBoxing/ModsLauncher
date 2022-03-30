@@ -1,0 +1,8 @@
+#include "Includes/GooglePlayGames.BasicApi.SavedGame/ConflictResolutionStrategy.h"
+#include "Includes/GooglePlayGames.BasicApi.SavedGame/SavedGameRequestStatus.h"
+#include "Includes/GooglePlayGames.BasicApi.SavedGame/SelectUIStatus.h"
+#include "Includes/GooglePlayGames.BasicApi.SavedGame/ConflictCallback.h"
+#include "Includes/GooglePlayGames.BasicApi.SavedGame/ISavedGameClient.h"
+#include "Includes/GooglePlayGames.BasicApi.SavedGame/IConflictResolver.h"
+#include "Includes/GooglePlayGames.BasicApi.SavedGame/ISavedGameMetadata.h"
+#include "Includes/GooglePlayGames.BasicApi.SavedGame/SavedGameMetadataUpdate.h"

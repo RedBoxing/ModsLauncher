@@ -1,0 +1,7 @@
+#include "Includes/I2.Loc.SimpleJSON/JSONBinaryTag.h"
+#include "Includes/I2.Loc.SimpleJSON/JSONNode.h"
+#include "Includes/I2.Loc.SimpleJSON/JSONArray.h"
+#include "Includes/I2.Loc.SimpleJSON/JSONClass.h"
+#include "Includes/I2.Loc.SimpleJSON/JSONData.h"
+#include "Includes/I2.Loc.SimpleJSON/JSONLazyCreator.h"
+#include "Includes/I2.Loc.SimpleJSON/JSON.h"

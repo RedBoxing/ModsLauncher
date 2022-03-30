@@ -1,0 +1,6 @@
+#include "Includes/RGScript.Character/RoleAttributeProxy.h"
+#include "Includes/RGScript.Character/Calculate`1.h"
+#include "Includes/RGScript.Character/Calculate`3.h"
+#include "Includes/RGScript.Character/CalculateInitializer.h"
+#include "Includes/RGScript.Character/RoleAttributeValue`1.h"
+#include "Includes/RGScript.Character/RoleAttributeValueEnum.h"

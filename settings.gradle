@@ -1,0 +1,2 @@
+rootProject.name = "Soul Knight Launcher"
+include ':app', ':lib'

@@ -1,0 +1,5 @@
+#include "Includes/RGScript.UI.ChooseHero/ChooseHeroCommand.h"
+#include "Includes/RGScript.UI.ChooseHero/ChooseHeroController.h"
+#include "Includes/RGScript.UI.ChooseHero/ChooseHeroData.h"
+#include "Includes/RGScript.UI.ChooseHero/ChooseHeroModel.h"
+#include "Includes/RGScript.UI.ChooseHero/ChooseHeroView.h"

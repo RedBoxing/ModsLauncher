@@ -1,0 +1,7 @@
+#include "Includes/RGScript.Config/ArtifactsConfig.h"
+#include "Includes/RGScript.Config/CharactersLevelUpConfig.h"
+#include "Includes/RGScript.Config/ItemsConfig.h"
+#include "Includes/RGScript.Config/MapsConfig.h"
+#include "Includes/RGScript.Config/PlayerMadeSkinInfoConfig.h"
+#include "Includes/RGScript.Config/WeaponsConfig.h"
+#include "Includes/RGScript.Config/WeaponsDropConfig.h"

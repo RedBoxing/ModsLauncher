@@ -1,0 +1,6 @@
+#include "Includes/ValueProperty/AbstractProperty`1.h"
+#include "Includes/ValueProperty/FloatProperty.h"
+#include "Includes/ValueProperty/IntProperty.h"
+#include "Includes/ValueProperty/Vector2Property.h"
+#include "Includes/ValueProperty/AdditionalItem`1.h"
+#include "Includes/ValueProperty/AdditionalType.h"

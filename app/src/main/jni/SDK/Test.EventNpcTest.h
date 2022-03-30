@@ -1,0 +1,8 @@
+#include "Includes/Test.EventNpcTest/AbstractEventNpcTester.h"
+#include "Includes/Test.EventNpcTest/EventNpcMockGameSceneManager.h"
+#include "Includes/Test.EventNpcTest/EventNpcMockMapManager.h"
+#include "Includes/Test.EventNpcTest/EventNpcMockUICanvas.h"
+#include "Includes/Test.EventNpcTest/EventNpcTest.h"
+#include "Includes/Test.EventNpcTest/EventNpcTestFactory.h"
+#include "Includes/Test.EventNpcTest/SmithTester.h"
+#include "Includes/Test.EventNpcTest/WishingWellTester.h"

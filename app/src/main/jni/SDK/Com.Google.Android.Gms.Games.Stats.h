@@ -1,0 +1,6 @@
+#include "Includes/Com.Google.Android.Gms.Games.Stats/Stats_LoadPlayerStatsResultObject.h"
+#include "Includes/Com.Google.Android.Gms.Games.Stats/PlayerStats.h"
+#include "Includes/Com.Google.Android.Gms.Games.Stats/PlayerStatsObject.h"
+#include "Includes/Com.Google.Android.Gms.Games.Stats/Stats.h"
+#include "Includes/Com.Google.Android.Gms.Games.Stats/Stats_LoadPlayerStatsResult.h"
+#include "Includes/Com.Google.Android.Gms.Games.Stats/StatsObject.h"
