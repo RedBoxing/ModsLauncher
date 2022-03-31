@@ -1,7 +1,9 @@
 package fr.redboxing.mods.soulknightlauncher;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -26,11 +28,14 @@ public class MainActivity extends AppCompatActivity {
     private static final String GAME_PACKAGE_NAME = "com.ChillyRoom.DungeonShooter";
     private static final String GAME_VERSION = "4.0.2";
 
+    @SuppressLint("StaticFieldLeak")
+    private static Context context;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        MainActivity.context = getApplicationContext();
         setContentView(R.layout.activity_main);
-        System.loadLibrary("redboxing_soul_knight");
 
         if (Build.VERSION.SDK_INT >= 23) {
             if (!Settings.canDrawOverlays(this)) {
@@ -51,11 +56,6 @@ public class MainActivity extends AppCompatActivity {
         if(isGameInstalled(GAME_PACKAGE_NAME) & this.getGameVersion(GAME_PACKAGE_NAME).equals(GAME_VERSION) & VirtualCore.get().getInstalledAppInfo(GAME_PACKAGE_NAME, 0) != null) {
             Toast.makeText(this, "Launching Game...", Toast.LENGTH_LONG).show();
             this.launchApp(GAME_PACKAGE_NAME);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                this.startForegroundService(new Intent(this, FloatingService.class));
-            } else {
-                this.startService(new Intent(this, FloatingService.class));
-            }
             Toast.makeText(this, "Game launched successfully!", Toast.LENGTH_LONG).show();
         }
     }
@@ -136,5 +136,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return dialog;
+    }
+
+    public static Context getContext() {
+        return context;
     }
 }

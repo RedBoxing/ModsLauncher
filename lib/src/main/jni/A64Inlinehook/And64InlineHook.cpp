@@ -5,19 +5,15 @@
  */
 /*
  MIT License
-
  Copyright (c) 2018 Rprop (r_prop@outlook.com)
-
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
  in the Software without restriction, including without limitation the rights
  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  copies of the Software, and to permit persons to whom the Software is
  furnished to do so, subject to the following conditions:
-
  The above copyright notice and this permission notice shall be included in all
  copies or substantial portions of the Software.
-
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,19 +23,21 @@
  SOFTWARE.
  */
 #define  __STDC_FORMAT_MACROS
-
-#if defined(__aarch64__)
-
+#include <inttypes.h>
 #include <string.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <android/log.h>
+
+#if defined(__aarch64__)
+
 #include "And64InlineHook.hpp"
 #define   A64_MAX_INSTRUCTIONS 5
 #define   A64_MAX_REFERENCES   (A64_MAX_INSTRUCTIONS * 2)
 #define   A64_NOP              0xd503201fu
 #define   A64_JNIEXPORT        __attribute__((visibility("default")))
+#define   A64_LOGE(...)        ((void)__android_log_print(ANDROID_LOG_ERROR, "A64_HOOK", __VA_ARGS__))
 #define __flush_cache(c, n)        __builtin___clear_cache(reinterpret_cast<char *>(c), reinterpret_cast<char *>(c) + n)
-
 
 typedef uint32_t *__restrict *__restrict instruction;
 typedef struct
@@ -112,8 +110,8 @@ static bool __fix_branch_imm(instruction inpp, instruction outpp, context *ctxp)
     const uint32_t ins = *(*inpp);
     const uint32_t opc = ins & mask;
     switch (opc) {
-        case op_b:
-        case op_bl:
+    case op_b:
+    case op_bl:
         {
             intptr_t current_idx  = ctxp->get_and_set_current_index(*inpp, *outpp);
             int64_t absolute_addr = reinterpret_cast<int64_t>(*inpp) + (static_cast<int32_t>(ins << mbits) >> (mbits - 2u)); // sign-extended
@@ -325,7 +323,7 @@ static bool __fix_pcreladdr(instruction inpp, instruction outpp, context *ctxp)
     const uint32_t ins = *(*inpp);
     intptr_t current_idx;
     switch (ins & mask) {
-        case op_adr:
+    case op_adr:
         {
             current_idx           = ctxp->get_and_set_current_index(*inpp, *outpp);
             int64_t lsb_bytes     = static_cast<uint32_t>(ins << 1u) >> 30u;
@@ -358,20 +356,23 @@ static bool __fix_pcreladdr(instruction inpp, instruction outpp, context *ctxp)
                 ++(*outpp);
             } //if
         }
-            break;
-        case op_adrp:
+        break;
+    case op_adrp:
         {
             current_idx           = ctxp->get_and_set_current_index(*inpp, *outpp);
             int32_t lsb_bytes     = static_cast<uint32_t>(ins << 1u) >> 30u;
             int64_t absolute_addr = (reinterpret_cast<int64_t>(*inpp) & ~0xfffll) + ((((static_cast<int32_t>(ins << msb) >> (msb + lsb - 2u)) & ~3u) | lsb_bytes) << 12);
+            //A64_LOGI("ins = 0x%.8X, pc = %p, abs_addr = %p", ins, *inpp, reinterpret_cast<int64_t *>(absolute_addr));
             if (ctxp->is_in_fixing_range(absolute_addr)) {
                 intptr_t ref_idx = ctxp->get_ref_ins_index(absolute_addr/* & ~3ull*/);
                 if (ref_idx > current_idx) {
                     // the bottom 12 bits of absolute_addr are masked out,
                     // so ref_idx must be less than or equal to current_idx!
+                    A64_LOGE("ref_idx must be less than or equal to current_idx!");
                 } //if
 
                 // *absolute_addr may be changed due to relocation fixing
+                //A64_LOGI("What is the correct way to fix this?");
                 *(*outpp)++ = ins; // 0x90000000u;
             } else {
                 if ((reinterpret_cast<uint64_t>(*outpp + 2) & 7u) != 0u) {
@@ -385,9 +386,9 @@ static bool __fix_pcreladdr(instruction inpp, instruction outpp, context *ctxp)
                 *outpp += 4;
             } //if
         }
-            break;
-        default:
-            return false;
+        break;
+    default:
+        return false;
     }
 
     ctxp->process_fix_map(current_idx);
@@ -466,106 +467,117 @@ extern "C" {
                                               __page_align(__uintval(p) + n) != __page_align(__uintval(p)) ? __page_align(n) + __page_size : __page_align(n), \
                                               PROT_READ | PROT_WRITE | PROT_EXEC)
 
-//-------------------------------------------------------------------------
+    //-------------------------------------------------------------------------
 
-static __attribute((aligned(__page_size))) uint32_t __insns_pool[A64_MAX_BACKUPS][A64_MAX_INSTRUCTIONS * 10];
+    static __attribute((aligned(__page_size))) uint32_t __insns_pool[A64_MAX_BACKUPS][A64_MAX_INSTRUCTIONS * 10];
 
-//-------------------------------------------------------------------------
+    //-------------------------------------------------------------------------
 
-class A64HookInit
-{
-public:
-    A64HookInit()
+    class A64HookInit
     {
-        __make_rwx(__insns_pool, sizeof(__insns_pool));
+    public:
+        A64HookInit()
+        {
+            __make_rwx(__insns_pool, sizeof(__insns_pool));
+            //A64_LOGI("insns pool initialized.");
+        }
+    };
+    static A64HookInit __init;
+
+    //-------------------------------------------------------------------------
+
+    static uint32_t *FastAllocateTrampoline()
+    {
+        static_assert((A64_MAX_INSTRUCTIONS * 10 * sizeof(uint32_t)) % 8 == 0, "8-byte align");
+        static volatile int32_t __index = -1;
+
+        int32_t i = __atomic_increase(&__index);
+        if (__predict_true(i >= 0 && i < __countof(__insns_pool))) {
+            return __insns_pool[i];
+        } //if
+
+        A64_LOGE("failed to allocate trampoline!");
+        return NULL;
     }
-};
-static A64HookInit __init;
 
-//-------------------------------------------------------------------------
+    //-------------------------------------------------------------------------
 
-static uint32_t *FastAllocateTrampoline()
-{
-    static_assert((A64_MAX_INSTRUCTIONS * 10 * sizeof(uint32_t)) % 8 == 0, "8-byte align");
-    static volatile int32_t __index = -1;
+    A64_JNIEXPORT void *A64HookFunctionV(void *const symbol, void *const replace,
+                                         void *const rwx, const uintptr_t rwx_size)
+    {
+        static constexpr uint_fast64_t mask = 0x03ffffffu; // 0b00000011111111111111111111111111
 
-    int32_t i = __atomic_increase(&__index);
-    if (__predict_true(i >= 0 && i < __countof(__insns_pool))) {
-        return __insns_pool[i];
-    } //if
+        uint32_t *trampoline = static_cast<uint32_t *>(rwx), *original = static_cast<uint32_t *>(symbol);
 
-    return NULL;
-}
-
-//-------------------------------------------------------------------------
-
-A64_JNIEXPORT void *A64HookFunctionV(void *const symbol, void *const replace,
-                                     void *const rwx, const uintptr_t rwx_size)
-{
-    static constexpr uint_fast64_t mask = 0x03ffffffu; // 0b00000011111111111111111111111111
-
-    uint32_t *trampoline = static_cast<uint32_t *>(rwx), *original = static_cast<uint32_t *>(symbol);
-
-    static_assert(A64_MAX_INSTRUCTIONS >= 5, "please fix A64_MAX_INSTRUCTIONS!");
-    auto pc_offset = static_cast<int64_t>(__intval(replace) - __intval(symbol)) >> 2;
-    if (llabs(pc_offset) >= (mask >>1)) {
-        int32_t count = (reinterpret_cast<uint64_t>(original + 2) & 7u) != 0u ? 5 : 4;
-        if (trampoline) {
-            if (rwx_size < count * 10u) {
-                return NULL;
+        static_assert(A64_MAX_INSTRUCTIONS >= 5, "please fix A64_MAX_INSTRUCTIONS!");
+        auto pc_offset = static_cast<int64_t>(__intval(replace) - __intval(symbol)) >> 2;
+        if (llabs(pc_offset) >= (mask >>1)) {
+            int32_t count = (reinterpret_cast<uint64_t>(original + 2) & 7u) != 0u ? 5 : 4;
+            if (trampoline) {
+                if (rwx_size < count * 10u) {
+                    //LOGW("rwx size is too small to hold %u bytes backup instructions!", count * 10u);
+                    return NULL;
+                } //if
+                __fix_instructions(original, count, trampoline);
             } //if
-            __fix_instructions(original, count, trampoline);
-        } //if
 
-        if (__make_rwx(original, 5 * sizeof(uint32_t)) == 0) {
-            if (count == 5) {
-                original[0] = A64_NOP;
-                ++original;
+            if (__make_rwx(original, 5 * sizeof(uint32_t)) == 0) {
+                if (count == 5) {
+                    original[0] = A64_NOP;
+                    ++original;
+                } //if
+                original[0] = 0x58000051u; // LDR X17, #0x8
+                original[1] = 0xd61f0220u; // BR X17
+                *reinterpret_cast<int64_t *>(original + 2) = __intval(replace);
+                __flush_cache(symbol, 5 * sizeof(uint32_t));
+
+                //A64_LOGI("inline hook %p->%p successfully! %zu bytes overwritten", symbol, replace, 5 * sizeof(uint32_t));
+            } else {
+                //A64_LOGE("mprotect failed with errno = %d, p = %p, size = %zu", errno, original, 5 * sizeof(uint32_t));
+                trampoline = NULL;
             } //if
-            original[0] = 0x58000051u; // LDR X17, #0x8
-            original[1] = 0xd61f0220u; // BR X17
-            *reinterpret_cast<int64_t *>(original + 2) = __intval(replace);
-            __flush_cache(symbol, 5 * sizeof(uint32_t));
-
         } else {
-            trampoline = NULL;
-        } //if
-    } else {
-        if (trampoline) {
-            if (rwx_size < 1u * 10u) {
-                return NULL;
+            if (trampoline) {
+                if (rwx_size < 1u * 10u) {
+                    //LOGW("rwx size is too small to hold %u bytes backup instructions!", 1u * 10u);
+                    return NULL;
+                } //if
+                __fix_instructions(original, 1, trampoline);
             } //if
-            __fix_instructions(original, 1, trampoline);
+
+            if (__make_rwx(original, 1 * sizeof(uint32_t)) == 0) {
+                __sync_cmpswap(original, *original, 0x14000000u | (pc_offset & mask)); // "B" ADDR_PCREL26
+                __flush_cache(symbol, 1 * sizeof(uint32_t));
+
+                //A64_LOGI("inline hook %p->%p successfully! %zu bytes overwritten", symbol, replace, 1 * sizeof(uint32_t));
+            } else {
+                //A64_LOGE("mprotect failed with errno = %d, p = %p, size = %zu", errno, original, 1 * sizeof(uint32_t));
+                trampoline = NULL;
+            } //if
         } //if
 
-        if (__make_rwx(original, 1 * sizeof(uint32_t)) == 0) {
-            __sync_cmpswap(original, *original, 0x14000000u | (pc_offset & mask)); // "B" ADDR_PCREL26
-            __flush_cache(symbol, 1 * sizeof(uint32_t));
+        return trampoline;
+    }
 
-        } else {
-            trampoline = NULL;
+    //-------------------------------------------------------------------------
+
+    A64_JNIEXPORT void A64HookFunction(void *const symbol, void *const replace, void **result)
+    {
+        void *trampoline = NULL;
+        if (result != NULL) {
+            trampoline = FastAllocateTrampoline();
+            *result = trampoline;
+            if (trampoline == NULL) return;
         } //if
-    } //if
-
-    return trampoline;
-}
-
-//-------------------------------------------------------------------------
-
-A64_JNIEXPORT void A64HookFunction(void *const symbol, void *const replace, void **result)
-{
-    void *trampoline = NULL;
-    if (result != NULL) {
-        trampoline = FastAllocateTrampoline();
-        *result = trampoline;
-        if (trampoline == NULL) return;
-    } //if
-
-    trampoline = A64HookFunctionV(symbol, replace, trampoline, A64_MAX_INSTRUCTIONS * 10u);
-    if (trampoline == NULL && result != NULL) {
-        *result = NULL;
-    } //if
-}
+        
+        //fix Android 10 .text segment is read-only by default
+        __make_rwx(symbol, 5 * sizeof(size_t));
+        
+        trampoline = A64HookFunctionV(symbol, replace, trampoline, A64_MAX_INSTRUCTIONS * 10u);
+        if (trampoline == NULL && result != NULL) {
+            *result = NULL;
+        } //if
+    }
 }
 
 #endif // defined(__aarch64__)

@@ -1,5 +1,8 @@
 package fr.redboxing.mods.soulknightlauncher;
 
+import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
@@ -15,6 +18,14 @@ public class XposedInjector implements IXposedHookLoadPackage {
         try {
             //System.load("/data/local/tmp/libsaygus.so");
             System.loadLibrary("redboxing_soulknight");
+
+            Context ctx = MainActivity.getContext();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ctx.startForegroundService(new Intent(ctx, FloatingService.class));
+            } else {
+                ctx.startService(new Intent(ctx, FloatingService.class));
+            }
+
             XposedBridge.log("SKLauncher loaded library !");
         }catch (Exception e){
             e.printStackTrace();
