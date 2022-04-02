@@ -4,6 +4,7 @@ import java.io.File;
 
 import mirror.RefClass;
 import mirror.MethodParams;
+import mirror.RefObject;
 import mirror.RefStaticMethod;
 
 /**

@@ -6,6 +6,7 @@ import android.os.Build;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 
+import android.util.Log;
 import android.widget.Toast;
 import com.lody.virtual.client.core.InstallStrategy;
 import com.lody.virtual.client.core.VirtualCore;

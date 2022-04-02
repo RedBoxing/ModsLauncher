@@ -8,8 +8,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
-import android.os.AsyncTask;
-import android.os.Build;
+import android.os.*;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.Gravity;
@@ -18,18 +17,20 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
-import android.os.Bundle;
 import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.Volley;
 import com.google.gson.Gson;
+import com.lody.virtual.client.core.InstallStrategy;
 import com.lody.virtual.client.core.VirtualCore;
 import com.lody.virtual.client.ipc.VActivityManager;
+import com.lody.virtual.os.VEnvironment;
 import com.lody.virtual.remote.InstallResult;
 import fr.redboxing.mods.modslauncher.data.LoginRepository;
 import fr.redboxing.mods.modslauncher.mods.Mod;
 import fr.redboxing.mods.modslauncher.mods.ModsItemAdapter;
 import fr.redboxing.mods.modslauncher.ui.login.LoginActivity;
 import fr.redboxing.mods.modslauncher.utils.AES;
+import fr.redboxing.mods.modslauncher.utils.TaskRunner;
 import fr.redboxing.mods.modslauncher.utils.WebUtils;
 import okhttp3.*;
 import org.json.JSONObject;
@@ -37,15 +38,15 @@ import org.json.JSONObject;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+
+import static fr.redboxing.mods.modslauncher.VirtualApp.XPOSED_INSTALLER_PACKAGE;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -66,6 +67,12 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(intent, 1234);
                 return;
             }
+        }
+
+        try {
+            this.ensureXposed();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
         ListView listView = findViewById(R.id.modsListView);
@@ -137,39 +144,112 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "An error occured while launching the mod !", Toast.LENGTH_SHORT).show();
             }
         });
+
+        Button button = findViewById(R.id.test);
+        button.setOnClickListener(v -> {
+           //launchApp(XPOSED_INSTALLER_PACKAGE);
+            launchApp("fr.redboxing.mods.soulknight");
+        });
     }
 
     private void updateMod(Mod mod, Runnable callback, Runnable errorCallback) {
-        installApp(mod.getPackage());
+        new Handler(Looper.getMainLooper()).post(() -> {
+            installApp(mod.getPackage());
 
-        try {
-            WebUtils.downloadFile(SERVER_URL + "/api/mods/" + mod.getPackage() + "/get", new JSONObject().put("token", AES.encrypt(LoginRepository.getInstance(null).getUser().getToken())),
-                    response -> {
-                        try {
-                            byte[] decrypted = AES.decrypt(response);
+            try {
+                WebUtils.downloadFile(SERVER_URL + "/api/mods/" + mod.getPackage() + "/get", new JSONObject().put("token", AES.encrypt(LoginRepository.getInstance(null).getUser().getToken())),
+                        response -> {
+                            try {
+                                byte[] decrypted = AES.decrypt(response);
 
-                            new File(getFilesDir() + "/" + mod.getPackage() + "/" + mod.getVersion()).mkdirs();
-                            File file = new File(getFilesDir() + "/" + mod.getPackage() + "/" + mod.getVersion() + "/" + mod.getPackage() + "-" + mod.getVersion() + ".apk");
-                            FileOutputStream fileOutputStream = new FileOutputStream(file);
-                            fileOutputStream.write(decrypted);
-                            fileOutputStream.close();
+                                File file = new File(getFilesDir(), mod.getPackage() + "-" + mod.getVersion() + ".apk");
+                                FileOutputStream fileOutputStream = new FileOutputStream(file);
+                                fileOutputStream.write(decrypted);
+                                fileOutputStream.close();
 
-                            InstallResult result = VirtualCore.get().installPackage(file.getAbsolutePath(), 0);
-                            Log.e("InstallResult", result.toString());
-                            file.delete();
+                                InstallResult result = VirtualCore.get().installPackage(file.getAbsolutePath(), InstallStrategy.UPDATE_IF_EXIST);
+                                Log.e("InstallResult", result.toString());
+                                file.delete();
 
-                            if(result.isSuccess) {
-                                callback.run();
-                            } else {
-                                errorCallback.run();
+                                if(result.isSuccess) {
+                                    this.enableXposedModule(VEnvironment.getDataAppPackageDirectory(result.packageName) + "/base.apk");
+                                    callback.run();
+                                } else {
+                                    errorCallback.run();
+                                }
+                            } catch (InvalidAlgorithmParameterException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | IOException e) {
+                                e.printStackTrace();
                             }
-                        } catch (InvalidAlgorithmParameterException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | IOException e) {
-                            e.printStackTrace();
-                        }
-                    },
-                    Throwable::printStackTrace);
-        } catch (Exception e) {
-            e.printStackTrace();
+                        },
+                        Throwable::printStackTrace);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    private void ensureXposed() throws IOException {
+        if(!VirtualCore.get().isAppInstalled(XPOSED_INSTALLER_PACKAGE)) {
+            AlertDialog alertDialog = setProgressDialog("Setting up...");
+
+            InputStream is = this.getAssets().open("XposedInstaller_3.1.5.apk");
+            File xposedInstallerApk = new File(getFilesDir() + "/XposedInstaller_3.1.5.apk");
+            FileOutputStream fileOutputStream = new FileOutputStream(xposedInstallerApk);
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = is.read(buffer)) > 0) {
+                fileOutputStream.write(buffer, 0, length);
+            }
+            fileOutputStream.close();
+            is.close();
+
+            if(!xposedInstallerApk.exists()) {
+                alertDialog.dismiss();
+                Toast.makeText(this, "Xposed installer not found !", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            InstallResult result = VirtualCore.get().installPackage(xposedInstallerApk.getAbsolutePath(), 0);
+            xposedInstallerApk.delete();
+
+            alertDialog.dismiss();
+            if(!result.isSuccess) {
+                Toast.makeText(this, "An error occured while installing Xposed !", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private void enableXposedModule(String moduleFile) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            File file = new File(VEnvironment.getDataUserPackageDirectory(0, XPOSED_INSTALLER_PACKAGE), "/exposed_conf/modules.list");
+            try {
+                Log.e("File", file.getAbsolutePath());
+                if(!file.exists()) {
+                    file.getParentFile().mkdirs();
+                    file.createNewFile();
+                }
+
+                BufferedReader reader = new BufferedReader(new FileReader(file));
+                String line = reader.readLine();
+                boolean found = false;
+                while(line != null) {
+                    if(line.contains(moduleFile)) {
+                        found = true;
+                        reader.close();
+                        break;
+                    }
+
+                    line = reader.readLine();
+                }
+
+                if(!found) {
+                    BufferedWriter writer = new BufferedWriter(new FileWriter(file, true));
+                    writer.write(moduleFile + "\n");
+                    writer.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

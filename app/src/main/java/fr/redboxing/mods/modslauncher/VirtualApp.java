@@ -6,6 +6,8 @@ import com.lody.virtual.client.core.VirtualCore;
 import com.lody.virtual.client.stub.VASettings;
 
 public class VirtualApp extends Application {
+    public static final String XPOSED_INSTALLER_PACKAGE = "de.robv.android.xposed.installer";
+
     @Override
     public void onCreate() {
         super.onCreate();

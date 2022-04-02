@@ -12,9 +12,9 @@ export function encrypt(raw: string) {
     return Buffer.concat([cipher.update(Buffer.from(raw, "utf8")), cipher.final()]).toString('base64');
 }
 
-export function encryptBinary(raw: string) {
+export function encryptBuffer(buffer: Buffer) {
     const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(process.env.CRYPTO_KEY, 'hex'), Buffer.from(process.env.CRYPTO_IV, 'hex'));
-    return Buffer.concat([cipher.update(Buffer.from(raw, "binary")), cipher.final()]).toString('base64');
+    return Buffer.concat([cipher.update(buffer), cipher.final()]).toString('base64');
 }
 
 export function hashPassword(password: string) {

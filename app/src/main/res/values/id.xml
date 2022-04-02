@@ -5,4 +5,5 @@
     <item type="id" name="modIcon" />
     <item type="id" name="modVersion" />
     <item type="id" name="modDesc" />
+    <item type="id" name="test" />
 </resources>

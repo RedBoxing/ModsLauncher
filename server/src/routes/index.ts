@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import prisma from '../database';
-import { encrypt, decrypt, hashPassword, validatePassword, encryptBinary } from '../utils/crypto';
+import { encrypt, decrypt, validatePassword, encryptBuffer } from '../utils/crypto';
 import fs from 'fs';
 
 export default function init() : Router {
@@ -32,7 +32,7 @@ export default function init() : Router {
         res.send(encrypt(JSON.stringify(mods)));
     });
 
-    router.post('/mods/:package/get', async (req, res) => {
+    router.post('/mods/:pkg/get', async (req, res) => {
         const { token } = req.body;
         if(!token) {
             return res.send(encrypt(JSON.stringify({
@@ -54,7 +54,6 @@ export default function init() : Router {
             })));
         }
         
-        //@ts-expect-error
         const { pkg } = req.params;
         if(!pkg) {
             return res.send(encrypt(JSON.stringify({
@@ -76,7 +75,7 @@ export default function init() : Router {
             })));
         }
 
-        const path = `${__dirname}/files/${mod.package}/${mod.version}/${mod.package}-${mod.version}.apk`;
+        const path = `files/${mod.package}/${mod.version}/${mod.package}-${mod.version}.apk`;
         if(!fs.existsSync(path)) {
             return res.send(encrypt(JSON.stringify({
                 success: false,
@@ -84,7 +83,7 @@ export default function init() : Router {
             })));
         }
 
-        res.send(encryptBinary(fs.readFileSync(path, 'binary')));
+        res.send(encryptBuffer(fs.readFileSync(path)));
     });
 
     router.post('/login', async (req, res) => {
