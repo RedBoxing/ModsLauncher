@@ -1,2 +1,4 @@
-rootProject.name = "Soul Knight Launcher"
+rootProject.name = "Mods Launcher"
 include ':app', ':lib'
+include ':sk_lib'
+include ':soulknight'

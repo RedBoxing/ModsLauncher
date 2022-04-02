@@ -6,6 +6,7 @@ import android.os.Build;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 
+import android.widget.Toast;
 import com.lody.virtual.client.core.InstallStrategy;
 import com.lody.virtual.client.core.VirtualCore;
 import com.lody.virtual.helper.collection.IntArray;
@@ -29,10 +30,7 @@ import com.lody.virtual.server.pm.parser.VPackage;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -147,12 +145,13 @@ public class VAppManagerService extends IAppManager.Stub {
             return InstallResult.makeFailure("path = NULL");
         }
         File packageFile = new File(path);
+        File packageDir = packageFile.getParentFile();
         if (!packageFile.exists()) {
             return InstallResult.makeFailure("Package File is not exist.");
         }
         VPackage pkg = null;
         try {
-            pkg = PackageParserEx.parsePackage(packageFile);
+            pkg = PackageParserEx.parsePackage(packageDir);
         } catch (Throwable e) {
             e.printStackTrace();
         }
@@ -201,6 +200,7 @@ public class VAppManagerService extends IAppManager.Stub {
             } else if (privatePackageFile.exists() && !privatePackageFile.delete()) {
                 VLog.w(TAG, "Warning: unable to delete file : " + privatePackageFile.getPath());
             }
+
             File baseApkFile = packageFile.isFile() ? packageFile : new File(pkg.baseCodePath);
             try {
                 FileUtils.copyFile(baseApkFile, privatePackageFile);
@@ -208,11 +208,11 @@ public class VAppManagerService extends IAppManager.Stub {
                 privatePackageFile.delete();
                 return InstallResult.makeFailure("Unable to copy the package file.");
             }
+
             // copy lib in base apk
             NativeLibraryHelperCompat.copyNativeBinaries(baseApkFile, libDir);
 
             packageFile = privatePackageFile;
-
             if (pkg.splitNames != null) {
                 int length = pkg.splitNames.length;
                 splitCodePaths = new String[length];

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item type="id" name="modsListView" />
+    <item type="id" name="modTitle" />
+    <item type="id" name="modIcon" />
+    <item type="id" name="modVersion" />
+    <item type="id" name="modDesc" />
+</resources>

@@ -19,9 +19,7 @@ allprojects {
         maven {
             url "https://jitpack.io"
         }
-        maven {
-            url "https://repo.redboxing.fr/artifactory/public"
-        }
+        maven { url 'https://jcenter.bintray.com/'}
     }
 }
 

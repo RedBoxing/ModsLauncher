@@ -4,10 +4,13 @@ import android.annotation.TargetApi;
 import android.os.Build;
 import android.os.SystemClock;
 
+import android.widget.Toast;
+import com.lody.virtual.client.core.VirtualCore;
 import com.lody.virtual.helper.utils.Reflect;
 import com.lody.virtual.helper.utils.VLog;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Set;
