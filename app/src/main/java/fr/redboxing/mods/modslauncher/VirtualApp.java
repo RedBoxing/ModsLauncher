@@ -7,6 +7,7 @@ import com.lody.virtual.client.stub.VASettings;
 
 public class VirtualApp extends Application {
     public static final String XPOSED_INSTALLER_PACKAGE = "de.robv.android.xposed.installer";
+    public static Context CONTEXT = null;
 
     @Override
     public void onCreate() {
@@ -16,6 +17,7 @@ public class VirtualApp extends Application {
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
+        CONTEXT = base;
         VASettings.ENABLE_IO_REDIRECT = true;
         VASettings.ENABLE_INNER_SHORTCUT = false;
 

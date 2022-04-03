@@ -1,9 +1,8 @@
 package fr.redboxing.mods.modslauncher.data;
 
-import android.util.Log;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import fr.redboxing.mods.modslauncher.MainActivity;
-import fr.redboxing.mods.modslauncher.data.model.LoggedInUser;
 import fr.redboxing.mods.modslauncher.utils.AES;
 import fr.redboxing.mods.modslauncher.utils.WebUtils;
 import org.json.JSONObject;
@@ -26,7 +25,12 @@ public class LoginDataSource {
             WebUtils.postString(MainActivity.SERVER_URL + "/api/login", new JSONObject().put("encUser", AES.encrypt(username)).put("encPass", AES.encrypt(password)),
                     encrypted -> {
                         try {
-                            callback.onLogin(new Result.Success<>(new Gson().fromJson(AES.decrypt(encrypted), LoggedInUser.class)));
+                            JsonObject jsonObject = new Gson().fromJson(AES.decrypt(encrypted), JsonObject.class);
+                            if (jsonObject.get("success").getAsBoolean()) {
+                                callback.onLogin(new Result.Success<>(jsonObject.get("token").getAsString()));
+                            } else {
+                                callback.onLogin(new Result.Error(new IOException("Login failed : " + jsonObject.get("error").getAsString())));
+                            }
                         } catch (NoSuchPaddingException | NoSuchAlgorithmException | InvalidAlgorithmParameterException | InvalidKeyException | BadPaddingException | IllegalBlockSizeException e) {
                             e.printStackTrace();
                         }

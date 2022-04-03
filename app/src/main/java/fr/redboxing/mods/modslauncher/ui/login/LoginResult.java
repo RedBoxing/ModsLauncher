@@ -1,14 +1,12 @@
 package fr.redboxing.mods.modslauncher.ui.login;
 
 import androidx.annotation.Nullable;
-import fr.redboxing.mods.modslauncher.data.model.LoggedInUser;
 
 /**
  * Authentication result : success (user details) or error message.
  */
 class LoginResult {
-    @Nullable
-    private LoggedInUserView success;
+    private boolean success;
     @Nullable
     private Integer error;
 
@@ -16,12 +14,11 @@ class LoginResult {
         this.error = error;
     }
 
-    LoginResult(@Nullable LoggedInUserView success) {
+    LoginResult(boolean success) {
         this.success = success;
     }
 
-    @Nullable
-    LoggedInUserView getSuccess() {
+    boolean getSuccess() {
         return success;
     }
 

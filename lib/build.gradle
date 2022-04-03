@@ -54,3 +54,31 @@ repositories {
     maven { url 'https://jcenter.bintray.com/'}
     maven { url 'https://jitpack.io' }
 }
+
+apply plugin: 'maven-publish'
+
+task sourceJar(type: Jar) {
+    from android.sourceSets.main.java.srcDirs
+    classifier "sources"
+}
+
+publishing {
+    publications {
+        app(MavenPublication) {
+            groupId = "fr.redboxing"
+            artifactId = "VirtualApp"
+            version "0.20.4"
+            artifact(sourceJar)
+            artifact("$buildDir/outputs/aar/lib-release.aar")
+        }
+    }
+    repositories {
+        maven {
+            url "https://repo.redboxing.fr/artifactory/public"
+            credentials {
+                username 'admin'
+                password 'XoQHMdaVP39C4A9U'
+            }
+        }
+    }
+}

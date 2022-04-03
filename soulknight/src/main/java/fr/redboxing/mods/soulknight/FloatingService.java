@@ -32,6 +32,7 @@ import android.view.WindowManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.*;
+import de.robv.android.xposed.XposedBridge;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -83,6 +84,7 @@ public class FloatingService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        XposedBridge.log("SOUL KNIGHT JNI MOD: FloatingService onCreate");
         Preferences.context = this;
 
         //A little message for the user when he opens the app

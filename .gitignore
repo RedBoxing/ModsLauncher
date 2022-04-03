@@ -46,3 +46,4 @@ google-services.json
 
 # Android Profiling
 *.hprof
+server/node_modules/

@@ -9,7 +9,7 @@ const express_1 = __importDefault(require("express"));
 const routes_1 = __importDefault(require("./routes"));
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
-app.use((0, routes_1.default)());
+app.use('/api', (0, routes_1.default)());
 app.listen(process.env.SERVER_PORT, () => {
     console.log(`Server is running on port ${process.env.SERVER_PORT}`);
 });

@@ -2,30 +2,28 @@ package fr.redboxing.mods.modslauncher.ui.login;
 
 import android.app.Activity;
 import android.content.Intent;
-import androidx.lifecycle.Observer;
+import android.content.SharedPreferences;
+import android.util.Log;
 import androidx.lifecycle.ViewModelProvider;
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatActivity;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import com.android.volley.RequestQueue;
-import com.android.volley.toolbox.Volley;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import fr.redboxing.mods.modslauncher.MainActivity;
-import fr.redboxing.mods.modslauncher.R;
-import fr.redboxing.mods.modslauncher.data.model.LoggedInUser;
 import fr.redboxing.mods.modslauncher.databinding.ActivityLoginBinding;
+import fr.redboxing.mods.modslauncher.utils.AES;
 import fr.redboxing.mods.modslauncher.utils.WebUtils;
+import org.json.JSONObject;
 
 public class LoginActivity extends AppCompatActivity {
     private LoginViewModel loginViewModel;
@@ -39,6 +37,34 @@ public class LoginActivity extends AppCompatActivity {
 
         binding = ActivityLoginBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+        SharedPreferences prefs = getSharedPreferences("auth", MODE_PRIVATE);
+        try {
+            if(prefs.contains(AES.encrypt("token"))) {
+                String token = AES.decrypt(prefs.getString(AES.encrypt("token"), ""));
+                WebUtils.postString(MainActivity.SERVER_URL + "/api/validateToken", new JSONObject().put("token", AES.encrypt(token)), result -> {
+                    try {
+                        JsonObject json = new Gson().fromJson(AES.decrypt(result), JsonObject.class);
+                        if(json.get("success").getAsBoolean()) {
+                            loginViewModel.getLoginRepository().setLoggedInUser(token);
+                            updateUiWithUser();
+                        } else {
+                            prefs.edit().remove(AES.encrypt("token")).apply();
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }, error -> {
+                    try {
+                        prefs.edit().remove(AES.encrypt("token")).apply();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         loginViewModel = new ViewModelProvider(this, new LoginViewModelFactory())
                 .get(LoginViewModel.class);
@@ -69,12 +95,10 @@ public class LoginActivity extends AppCompatActivity {
             if (loginResult.getError() != null) {
                 showLoginFailed(loginResult.getError());
             }
-            if (loginResult.getSuccess() != null) {
-                updateUiWithUser(loginResult.getSuccess());
+            if (loginResult.getSuccess()) {
+                updateUiWithUser();
             }
             setResult(Activity.RESULT_OK);
-
-            //Complete and destroy login activity once successful
             finish();
         });
 
@@ -97,29 +121,22 @@ public class LoginActivity extends AppCompatActivity {
         };
         usernameEditText.addTextChangedListener(afterTextChangedListener);
         passwordEditText.addTextChangedListener(afterTextChangedListener);
-        passwordEditText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if (actionId == EditorInfo.IME_ACTION_DONE) {
-                    loginViewModel.login(usernameEditText.getText().toString(),
-                            passwordEditText.getText().toString());
-                }
-                return false;
-            }
-        });
-
-        loginButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                loadingProgressBar.setVisibility(View.VISIBLE);
+        passwordEditText.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
                 loginViewModel.login(usernameEditText.getText().toString(),
                         passwordEditText.getText().toString());
             }
+            return false;
+        });
+
+        loginButton.setOnClickListener(v -> {
+            loadingProgressBar.setVisibility(View.VISIBLE);
+            loginViewModel.login(usernameEditText.getText().toString(),
+                    passwordEditText.getText().toString());
         });
     }
 
-    private void updateUiWithUser(LoggedInUserView model) {
+    private void updateUiWithUser() {
         Intent intent = new Intent(this, MainActivity.class);
         startActivity(intent);
     }

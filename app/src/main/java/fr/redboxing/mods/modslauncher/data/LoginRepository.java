@@ -1,7 +1,10 @@
 package fr.redboxing.mods.modslauncher.data;
 
-import android.util.Log;
-import fr.redboxing.mods.modslauncher.data.model.LoggedInUser;
+import android.content.SharedPreferences;
+import fr.redboxing.mods.modslauncher.VirtualApp;
+import fr.redboxing.mods.modslauncher.utils.AES;
+
+import static android.content.Context.MODE_PRIVATE;
 
 /**
  * Class that requests authentication and user information from the remote data source and
@@ -10,14 +13,9 @@ import fr.redboxing.mods.modslauncher.data.model.LoggedInUser;
 public class LoginRepository {
 
     private static volatile LoginRepository instance;
-
     private LoginDataSource dataSource;
+    private String token = null;
 
-    // If user credentials will be cached in local storage, it is recommended it be encrypted
-    // @see https://developer.android.com/training/articles/keystore
-    private LoggedInUser user = null;
-
-    // private constructor : singleton access
     private LoginRepository(LoginDataSource dataSource) {
         this.dataSource = dataSource;
     }
@@ -30,31 +28,36 @@ public class LoginRepository {
     }
 
     public boolean isLoggedIn() {
-        return user != null;
+        return token != null && !token.isEmpty();
     }
 
     public void logout() {
-        user = null;
+        token = null;
         dataSource.logout();
     }
 
-    private void setLoggedInUser(LoggedInUser user) {
-        this.user = user;
-        // If user credentials will be cached in local storage, it is recommended it be encrypted
-        // @see https://developer.android.com/training/articles/keystore
+    public void setLoggedInUser(String token) {
+        this.token = token;
+        SharedPreferences.Editor editor = VirtualApp.CONTEXT.getSharedPreferences("auth", MODE_PRIVATE).edit();
+        try {
+            editor.putString(AES.encrypt("token"), AES.encrypt(token));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        editor.apply();
     }
 
     public void login(String username, String password, LoginCallback callback) {
         dataSource.login(username, password, result -> {
             if (result instanceof Result.Success) {
-                setLoggedInUser(((Result.Success<LoggedInUser>) result).getData());
+                setLoggedInUser(((Result.Success<String>) result).getData());
             }
 
             callback.onLogin(result);
         });
     }
 
-    public LoggedInUser getUser() {
-        return user;
+    public String getToken() {
+        return token;
     }
 }

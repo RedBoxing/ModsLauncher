@@ -2,63 +2,26 @@ import { Router } from 'express';
 import prisma from '../database';
 import { encrypt, decrypt, validatePassword, encryptBuffer } from '../utils/crypto';
 import fs from 'fs';
+import jwt from 'jsonwebtoken';
+import { verifyToken } from '../middleware/auth';
 
 export default function init() : Router {
     const router = Router();
 
-    router.post('/mods', async (req, res) => {
-        const { token } = req.body;
-        if(!token) {
-            return res.send(encrypt(JSON.stringify({
-                success: false,
-                message: 'Missing token'
-            })));
-        }
-
-        const user = await prisma.user.findFirst({
-            where: {
-                token: decrypt(token)
-            }
-        });
-
-        if(!user) {
-            return res.send(encrypt(JSON.stringify({
-                success: false,
-                message: 'Invalid token'
-            })));
-        }
-
+    router.post('/mods', verifyToken, async (req, res) => {
         const mods = await prisma.mod.findMany();
-        res.send(encrypt(JSON.stringify(mods)));
+        res.send(encrypt(JSON.stringify({
+            success: true,
+            mods
+        })));
     });
 
-    router.post('/mods/:pkg/get', async (req, res) => {
-        const { token } = req.body;
-        if(!token) {
-            return res.send(encrypt(JSON.stringify({
-                success: false,
-                message: 'Missing token'
-            })));
-        }
-
-        const user = await prisma.user.findFirst({
-            where: {
-                token: decrypt(token)
-            }
-        });
-
-        if(!user) {
-            return res.send(encrypt(JSON.stringify({
-                success: false,
-                message: 'Invalid token'
-            })));
-        }
-        
+    router.post('/mods/:pkg/get', verifyToken, async (req, res) => {        
         const { pkg } = req.params;
         if(!pkg) {
             return res.send(encrypt(JSON.stringify({
                 success: false,
-                message: 'Missing package'
+                error: 'Missing package'
             })));
         }
 
@@ -71,7 +34,7 @@ export default function init() : Router {
         if(!mod) {
             return res.send(encrypt(JSON.stringify({
                 success: false,
-                message: 'Mod not found'
+                error: 'Mod not found'
             })));
         }
 
@@ -79,7 +42,7 @@ export default function init() : Router {
         if(!fs.existsSync(path)) {
             return res.send(encrypt(JSON.stringify({
                 success: false,
-                message: 'Mod not found'
+                error: 'Mod not found'
             })));
         }
 
@@ -88,6 +51,13 @@ export default function init() : Router {
 
     router.post('/login', async (req, res) => {
         const { encUser, encPass } = req.body;
+
+        if(!encUser || !encPass) {
+            return res.send(encrypt(JSON.stringify({
+                success: false,
+                error: 'Missing user or password'
+            })));
+        }
 
         const email = decrypt(encUser);
         const pass = decrypt(encPass);
@@ -101,22 +71,31 @@ export default function init() : Router {
         if(user) {
             if(await validatePassword(pass, user.password)) {
                 res.send(encrypt(JSON.stringify({
-                        id: user.id,
-                        email: user.email,
-                        name: user.name,
-                        token: user.token
+                        success: true,
+                        token: jwt.sign({
+                            id: user.id,
+                            email: user.email
+                        }, process.env.JWT_SECRET)
                     }
                 )));
             } else {
-                res.status(401).send(encrypt(JSON.stringify(({
+                res.send(encrypt(JSON.stringify(({
+                    success: false,
                     error: 'Invalid credentials'
                 }))));
             }
         } else {
-            res.status(401).send(encrypt(JSON.stringify(({
+            res.send(encrypt(JSON.stringify(({
+                success: false,
                 error: 'Invalid credentials'
             }))));
         }
+    });
+
+    router.post('/validateToken', verifyToken, async (req, res) => {
+        res.send(encrypt(JSON.stringify({
+            success: true
+        })));
     });
 
     return router;

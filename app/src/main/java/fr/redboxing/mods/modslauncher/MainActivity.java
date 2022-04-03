@@ -1,10 +1,9 @@
 package fr.redboxing.mods.modslauncher;
 
-import android.annotation.SuppressLint;
 import android.app.AlertDialog;
-import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -17,34 +16,33 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
-import com.android.volley.RequestQueue;
-import com.android.volley.toolbox.Volley;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.lody.virtual.client.core.InstallStrategy;
 import com.lody.virtual.client.core.VirtualCore;
 import com.lody.virtual.client.ipc.VActivityManager;
+import com.lody.virtual.client.ipc.VPackageManager;
 import com.lody.virtual.os.VEnvironment;
 import com.lody.virtual.remote.InstallResult;
+import com.lody.virtual.remote.InstalledAppInfo;
+import com.wind.xposed.entry.XposedModuleEntry;
 import fr.redboxing.mods.modslauncher.data.LoginRepository;
 import fr.redboxing.mods.modslauncher.mods.Mod;
 import fr.redboxing.mods.modslauncher.mods.ModsItemAdapter;
-import fr.redboxing.mods.modslauncher.ui.login.LoginActivity;
 import fr.redboxing.mods.modslauncher.utils.AES;
-import fr.redboxing.mods.modslauncher.utils.TaskRunner;
 import fr.redboxing.mods.modslauncher.utils.WebUtils;
-import okhttp3.*;
 import org.json.JSONObject;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import static fr.redboxing.mods.modslauncher.VirtualApp.XPOSED_INSTALLER_PACKAGE;
 
@@ -79,13 +77,19 @@ public class MainActivity extends AppCompatActivity {
         ArrayList<Mod> mods = new ArrayList<>();
 
         try {
-            WebUtils.postString(SERVER_URL + "/api/mods", new JSONObject().put("token", AES.encrypt(LoginRepository.getInstance(null).getUser().getToken())),
+            WebUtils.postString(SERVER_URL + "/api/mods", new JSONObject().put("token", AES.encrypt(LoginRepository.getInstance(null).getToken())),
                 result -> {
                     try {
                         String decrypted = AES.decrypt(result);
-                        mods.addAll((Arrays.asList(new Gson().fromJson(decrypted, Mod[].class))));
-                        ModsItemAdapter modsItemAdapter = new ModsItemAdapter(this, mods);
-                        listView.setAdapter(modsItemAdapter);
+                        JsonObject jsonObject = new Gson().fromJson(decrypted, JsonObject.class);
+                        if(jsonObject.get("success").getAsBoolean()) {
+                            mods.addAll((Arrays.asList(new Gson().fromJson(jsonObject.get("mods"), Mod[].class))));
+                            ModsItemAdapter modsItemAdapter = new ModsItemAdapter(this, mods);
+                            listView.setAdapter(modsItemAdapter);
+                        } else {
+                            Toast.makeText(this, "An error occured while loading mods list !", Toast.LENGTH_SHORT).show();
+                            Log.e("MainActivity", jsonObject.get("error").getAsString());
+                        }
                     } catch (NoSuchPaddingException | NoSuchAlgorithmException | InvalidAlgorithmParameterException | InvalidKeyException | BadPaddingException | IllegalBlockSizeException e) {
                         e.printStackTrace();
                     }
@@ -144,12 +148,12 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "An error occured while launching the mod !", Toast.LENGTH_SHORT).show();
             }
         });
+    }
 
-        Button button = findViewById(R.id.test);
-        button.setOnClickListener(v -> {
-           //launchApp(XPOSED_INSTALLER_PACKAGE);
-            launchApp("fr.redboxing.mods.soulknight");
-        });
+    @Override
+    protected void attachBaseContext(Context base) {
+        //XposedModuleEntry.init(base, new ArrayList<>(), true);
+        super.attachBaseContext(base);
     }
 
     private void updateMod(Mod mod, Runnable callback, Runnable errorCallback) {
@@ -157,7 +161,7 @@ public class MainActivity extends AppCompatActivity {
             installApp(mod.getPackage());
 
             try {
-                WebUtils.downloadFile(SERVER_URL + "/api/mods/" + mod.getPackage() + "/get", new JSONObject().put("token", AES.encrypt(LoginRepository.getInstance(null).getUser().getToken())),
+                WebUtils.downloadFile(SERVER_URL + "/api/mods/" + mod.getPackage() + "/get", new JSONObject().put("token", AES.encrypt(LoginRepository.getInstance(null).getToken())),
                         response -> {
                             try {
                                 byte[] decrypted = AES.decrypt(response);
@@ -173,6 +177,7 @@ public class MainActivity extends AppCompatActivity {
 
                                 if(result.isSuccess) {
                                     this.enableXposedModule(VEnvironment.getDataAppPackageDirectory(result.packageName) + "/base.apk");
+                                    recreate();
                                     callback.run();
                                 } else {
                                     errorCallback.run();

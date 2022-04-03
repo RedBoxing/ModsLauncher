@@ -8,7 +8,6 @@ import android.util.Patterns;
 
 import fr.redboxing.mods.modslauncher.data.LoginRepository;
 import fr.redboxing.mods.modslauncher.data.Result;
-import fr.redboxing.mods.modslauncher.data.model.LoggedInUser;
 import fr.redboxing.mods.modslauncher.R;
 
 public class LoginViewModel extends ViewModel {
@@ -29,11 +28,14 @@ public class LoginViewModel extends ViewModel {
         return loginResult;
     }
 
+    public LoginRepository getLoginRepository() {
+        return loginRepository;
+    }
+
     public void login(String username, String password) {
         loginRepository.login(username, password, result -> {
             if (result instanceof Result.Success) {
-                LoggedInUser data = ((Result.Success<LoggedInUser>) result).getData();
-                loginResult.setValue(new LoginResult(new LoggedInUserView(data.getName())));
+                loginResult.setValue(new LoginResult(true));
             } else {
                 loginResult.setValue(new LoginResult(R.string.login_failed));
                 Log.e("LoginViewModel", "Login failed : " + result);
