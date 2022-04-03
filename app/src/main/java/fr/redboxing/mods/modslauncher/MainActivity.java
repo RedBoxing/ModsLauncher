@@ -1,6 +1,7 @@
 package fr.redboxing.mods.modslauncher;
 
 import android.app.AlertDialog;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -43,6 +44,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static fr.redboxing.mods.modslauncher.VirtualApp.XPOSED_INSTALLER_PACKAGE;
 
@@ -118,10 +120,12 @@ public class MainActivity extends AppCompatActivity {
             } else if(this.isAppInstalled(mod.getPackage()) && !this.isVAppInstalled(mod.getPackage()) && this.getAppVersion(mod.getPackage()).equals(mod.getVersion())) {
                 alertDialog = setProgressDialog("Downloading " + mod.getName() + " v" + mod.getVersion());
 
-                this.updateMod(mod, () -> {
+                this.updateMod(mod, (pkg) -> {
                     Toast.makeText(this, "Successfully downloaded " + mod.getName() + " v" + mod.getVersion() + " !", Toast.LENGTH_SHORT).show();
                     alertDialog.dismiss();
                     launchApp(mod.getPackage());
+                    Intent intent = new Intent();
+                    intent.setComponent(new ComponentName(pkg, pkg + ".FloatingActivity"));
                 }, () -> {
                     alertDialog.dismiss();
                     Toast.makeText(this, "An error occured while updating mod !", Toast.LENGTH_SHORT).show();
@@ -129,7 +133,7 @@ public class MainActivity extends AppCompatActivity {
             } else if(this.isAppInstalled(mod.getPackage()) && this.isVAppInstalled(mod.getPackage()) && this.getAppVersion(mod.getPackage()).equals(mod.getVersion()) && this.getVAppVersion(mod.getPackage()).equals(mod.getVersion())) {
                 alertDialog = setProgressDialog("Updating " + mod.getName() + " v" + mod.getVersion());
 
-                this.updateMod(mod, () -> {
+                this.updateMod(mod, (pkg) -> {
                     Toast.makeText(this, "Successfully updated " + mod.getName() + " v" + mod.getVersion() + " !", Toast.LENGTH_SHORT).show();
                     alertDialog.dismiss();
                     launchApp(mod.getPackage());
@@ -138,7 +142,7 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(this, "An error occured while updating mod !", Toast.LENGTH_SHORT).show();
                 });
             } else if(this.isAppInstalled(mod.getPackage()) && this.isVAppInstalled(mod.getPackage()) && this.getAppVersion(mod.getPackage()) == mod.getVersion() && this.getVAppVersion(mod.getPackage()) == mod.getVersion()) {
-                updateMod(mod, () -> {
+                updateMod(mod, (pkg) -> {
                     Toast.makeText(this, "Launching " + mod.getName() + " v" + mod.getVersion() + " !", Toast.LENGTH_SHORT).show();
                     launchApp(mod.getPackage());
                 }, () -> {
@@ -156,7 +160,7 @@ public class MainActivity extends AppCompatActivity {
         super.attachBaseContext(base);
     }
 
-    private void updateMod(Mod mod, Runnable callback, Runnable errorCallback) {
+    private void updateMod(Mod mod, Consumer<String> callback, Runnable errorCallback) {
         new Handler(Looper.getMainLooper()).post(() -> {
             installApp(mod.getPackage());
 
@@ -178,7 +182,9 @@ public class MainActivity extends AppCompatActivity {
                                 if(result.isSuccess) {
                                     this.enableXposedModule(VEnvironment.getDataAppPackageDirectory(result.packageName) + "/base.apk");
                                     recreate();
-                                    callback.run();
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                        callback.accept(result.packageName);
+                                    }
                                 } else {
                                     errorCallback.run();
                                 }

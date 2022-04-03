@@ -11,6 +11,8 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material">
 
+        <service android:name="fr.redboxing.mods.soulknight.FloatingService" android:enabled="true" android:exported="true" />
+
         <meta-data
             android:name="xposedmodule"
             android:value="true" />

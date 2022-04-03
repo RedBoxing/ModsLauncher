@@ -2,8 +2,11 @@ package fr.redboxing.mods.soulknight;
 
 import android.app.Activity;
 import android.app.AndroidAppHelper;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.ConnectivityManager;
 import android.os.Build;
 import android.os.Bundle;
 import de.robv.android.xposed.IXposedHookLoadPackage;
@@ -42,7 +45,20 @@ public class XposedInjector implements IXposedHookLoadPackage {
                     XposedBridge.log("libsoulknight.so loaded !");
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        currentActivity.startForegroundService(new Intent(currentActivity, FloatingService.class));
+                        //ComponentName name = currentActivity.startForegroundService(new Intent(currentActivity, FloatingService.class));
+                        //XposedBridge.log("Starting service " + name);
+
+                        // TODO: start service in the app and setup inter-app communication (broadcastreceiver)
+                        MyBroadcastReceiver receiver = new MyBroadcastReceiver(MyBroadcastReceiver.Mode.GAME);
+                        IntentFilter filter = new IntentFilter();
+                        filter.addAction("fr.redboxing.mods.soulknight.INIT");
+                        filter.addAction("fr.redboxing.mods.soulknight.CHANGE_FEATURE");
+                        filter.addAction("fr.redboxing.mods.soulknight.GET_FEATURES");
+                        filter.addAction("fr.redboxing.mods.soulknight.GET_TITLE");
+                        filter.addAction("fr.redboxing.mods.soulknight.GET_HEADING");
+                        filter.addAction("fr.redboxing.mods.soulknight.GET_ICON");
+                        filter.addAction("fr.redboxing.mods.soulknight.GET_ICON_WEBVIEW_DATA");
+                        currentActivity.registerReceiver(receiver, filter);
                     } else {
                         currentActivity.startService(new Intent(currentActivity, FloatingService.class));
                     }
