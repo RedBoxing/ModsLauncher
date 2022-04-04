@@ -81,26 +81,21 @@ public class FloatingService extends Service {
 
     private static final String CHANNEL_ID = "Overlay_notification_channel";
 
-    private MyBroadcastReceiver broadcastReceiver;
-
     //When this Class is called the code in this function will be executed
     @Override
     public void onCreate() {
         super.onCreate();
 
-        this.broadcastReceiver = new MyBroadcastReceiver(MyBroadcastReceiver.Mode.MENU);
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction("fr.redboxing.mods.soulknight.FEATURES");
-        intentFilter.addAction("fr.redboxing.mods.soulknight.TITLE");
-        intentFilter.addAction("fr.redboxing.mods.soulknight.HEADING");
-        intentFilter.addAction("fr.redboxing.mods.soulknight.ICON");
-        intentFilter.addAction("fr.redboxing.mods.soulknight.ICON_WEBVIEW_DATA");
-        registerReceiver(this.broadcastReceiver, intentFilter);
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
         Preferences.context = this;
 
         //A little message for the user when he opens the app
-        NativeBridge.init(this);
+        NativeLibrary.init(this);
 
         //Create the menu
         initFloating();
@@ -162,12 +157,8 @@ public class FloatingService extends Service {
         startimage.requestLayout();
         startimage.setScaleType(ImageView.ScaleType.FIT_XY);
 
-        this.broadcastReceiver.setGetIconCallback(icon -> {
-            byte[] decode = Base64.decode(icon, 0);
-            startimage.setImageBitmap(BitmapFactory.decodeByteArray(decode, 0, decode.length));
-        });
-
-        NativeBridge.getIcon(this);
+        byte[] decode = Base64.decode(NativeLibrary.getIcon(), 0);
+        startimage.setImageBitmap(BitmapFactory.decodeByteArray(decode, 0, decode.length));
 
         ((ViewGroup.MarginLayoutParams) startimage.getLayoutParams()).topMargin = convertDipToPixels(10);
         //Initialize event handlers for buttons, etc.
@@ -180,18 +171,12 @@ public class FloatingService extends Service {
         //********** The icon in Webview to open mod menu **********
         WebView wView = new WebView(this); //Icon size width=\"50\" height=\"50\"
 
-        AtomicReference<String> iconWebViewData = null;
-        this.broadcastReceiver.setGetIconWebViewDataCallback(data -> {
-            iconWebViewData.set(data);
-            wView.loadData("<html>" +
-                    "<head></head>" +
-                    "<body style=\"margin: 0; padding: 0\">" +
-                    "<img src=\"" + data + "\" width=\"" + ICON_SIZE + "\" height=\"" + ICON_SIZE + "\"" +
-                    "</body>" +
-                    "</html>", "text/html", "utf-8");
-        });
-
-        NativeBridge.getIconWebViewData(this);
+        wView.loadData("<html>" +
+                "<head></head>" +
+                "<body style=\"margin: 0; padding: 0\">" +
+                "<img src=\"" + NativeLibrary.getIconWebViewData() + "\" width=\"" + ICON_SIZE + "\" height=\"" + ICON_SIZE + "\"" +
+                "</body>" +
+                "</html>", "text/html", "utf-8");
         wView.setBackgroundColor(0x00000000); //Transparent
         wView.setAlpha(ICON_ALPHA);
         wView.getSettings().setAppCachePath("/data/data/" + getPackageName() + "/cache");
@@ -234,10 +219,7 @@ public class FloatingService extends Service {
         titleText.setVerticalGravity(16);
 
         TextView title = new TextView(this);
-
-        this.broadcastReceiver.setGetTitleCallback(text -> title.setText(Html.fromHtml(text)));
-        NativeBridge.getTitle(this);
-
+        title.setText(Html.fromHtml(NativeLibrary.getTitle()));
         title.setTextColor(TEXT_COLOR);
         title.setTextSize(18.0f);
         title.setGravity(Gravity.CENTER);
@@ -247,10 +229,7 @@ public class FloatingService extends Service {
 
         //********** Heading text **********
         TextView heading = new TextView(this);
-
-        this.broadcastReceiver.setGetHeadingCallback(text -> heading.setText(Html.fromHtml(text)));
-        NativeBridge.getHeading(this);
-
+        heading.setText(Html.fromHtml(NativeLibrary.getHeading()));
         heading.setEllipsize(TextUtils.TruncateAt.MARQUEE);
         heading.setMarqueeRepeatLimit(-1);
         heading.setSingleLine(true);
@@ -327,7 +306,7 @@ public class FloatingService extends Service {
         rootFrame.addView(mRootContainer);
         mRootContainer.addView(mCollapsed);
         mRootContainer.addView(mExpanded);
-        if (iconWebViewData.get() != null && !iconWebViewData.get().isEmpty()) {
+        if (NativeLibrary.getIconWebViewData() != null) {
             mCollapsed.addView(wView);
         } else {
             mCollapsed.addView(startimage);
@@ -361,38 +340,37 @@ public class FloatingService extends Service {
                 } else {
                     patches.removeAllViews();
                     //********** Create menu list **********
-                    FloatingService.this.broadcastReceiver.setGetFeatureCallback(listFT -> {
-                        for (int i = 0; i < listFT.length; i++) {
-                            final int feature = i;
-                            String str = listFT[i];
-                            String[] strSplit = str.split("_");
-                            if (strSplit[0].equals("Toggle")) {
-                                Switch(feature, strSplit[1]);
-                            } else if (strSplit[0].equals("SeekBar")) {
-                                SeekBar(feature, strSplit[1], Integer.parseInt(strSplit[2]), Integer.parseInt(strSplit[3]));
-                            } else if (strSplit[0].equals("Button")) {
-                                Button(feature, strSplit[1]);
-                            } else if (strSplit[0].equals("ButtonLink")) {
-                                ButtonLink(strSplit[1], strSplit[2]);
-                            } else if (strSplit[0].equals("ButtonOnOff")) {
-                                ButtonOnOff(feature, strSplit[1]);
-                            } else if (strSplit[0].equals("Spinner")) {
-                                Spinner(feature, strSplit[1], strSplit[2]);
-                            } else if (strSplit[0].equals("InputValue")) {
-                                TextField(feature, strSplit[1]);
-                            } else if (strSplit[0].equals("CheckBox")) {
-                                CheckBox(feature, strSplit[1]);
-                            } else if (strSplit[0].equals("Category")) {
-                                Category(strSplit[1]);
-                            } else if (strSplit[0].equals("RichTextView")) {
-                                RichTextView(strSplit[1]);
-                            } else if (strSplit[0].equals("RichWebView")) {
-                                RichWebView(strSplit[1]);
-                            } else if (strSplit[0].equals("RadioButton")) {
-                                RadioButton(feature, strSplit[1], strSplit[2]);
-                            }
+                    String[] listFT = NativeLibrary.getFeatureList();
+                    for (int i = 0; i < listFT.length; i++) {
+                        final int feature = i;
+                        String str = listFT[i];
+                        String[] strSplit = str.split("_");
+                        if (strSplit[0].equals("Toggle")) {
+                            Switch(feature, strSplit[1]);
+                        } else if (strSplit[0].equals("SeekBar")) {
+                            SeekBar(feature, strSplit[1], Integer.parseInt(strSplit[2]), Integer.parseInt(strSplit[3]));
+                        } else if (strSplit[0].equals("Button")) {
+                            Button(feature, strSplit[1]);
+                        } else if (strSplit[0].equals("ButtonLink")) {
+                            ButtonLink(strSplit[1], strSplit[2]);
+                        } else if (strSplit[0].equals("ButtonOnOff")) {
+                            ButtonOnOff(feature, strSplit[1]);
+                        } else if (strSplit[0].equals("Spinner")) {
+                            Spinner(feature, strSplit[1], strSplit[2]);
+                        } else if (strSplit[0].equals("InputValue")) {
+                            TextField(feature, strSplit[1]);
+                        } else if (strSplit[0].equals("CheckBox")) {
+                            CheckBox(feature, strSplit[1]);
+                        } else if (strSplit[0].equals("Category")) {
+                            Category(strSplit[1]);
+                        } else if (strSplit[0].equals("RichTextView")) {
+                            RichTextView(strSplit[1]);
+                        } else if (strSplit[0].equals("RichWebView")) {
+                            RichWebView(strSplit[1]);
+                        } else if (strSplit[0].equals("RadioButton")) {
+                            RadioButton(feature, strSplit[1], strSplit[2]);
                         }
-                    });
+                    }
                 }
             }
         }, 500);

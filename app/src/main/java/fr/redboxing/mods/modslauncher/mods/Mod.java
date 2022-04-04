@@ -8,13 +8,15 @@ public class Mod implements Parcelable {
     private final String name;
     private final String description;
     @SerializedName("package")
+    private final String _package;
     private final String modPackage;
     private final String version;
     private final String icon;
 
-    public Mod(String name, String description, String modPackage, String version, String icon) {
+    public Mod(String name, String description, String _package, String modPackage, String version, String icon) {
         this.name = name;
         this.description = description;
+        this._package = _package;
         this.modPackage = modPackage;
         this.version = version;
         this.icon = icon;
@@ -23,6 +25,7 @@ public class Mod implements Parcelable {
     protected Mod(Parcel in) {
         name = in.readString();
         description = in.readString();
+        _package = in.readString();
         modPackage = in.readString();
         version = in.readString();
         icon = in.readString();
@@ -37,6 +40,10 @@ public class Mod implements Parcelable {
     }
 
     public String getPackage() {
+        return _package;
+    }
+
+    public String getModPackage() {
         return modPackage;
     }
 
@@ -69,6 +76,7 @@ public class Mod implements Parcelable {
     public void writeToParcel(Parcel parcel, int i) {
         parcel.writeString(name);
         parcel.writeString(description);
+        parcel.writeString(_package);
         parcel.writeString(modPackage);
         parcel.writeString(version);
         parcel.writeString(icon);

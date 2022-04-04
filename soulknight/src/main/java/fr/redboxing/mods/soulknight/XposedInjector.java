@@ -6,6 +6,9 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.AssetManager;
+import android.content.res.TypedArray;
+import android.content.res.XmlResourceParser;
 import android.net.ConnectivityManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -29,7 +32,6 @@ public class XposedInjector implements IXposedHookLoadPackage {
 
         try {
             Class.forName("de.robv.android.xposed.XposedBridge");
-
             ClassLoader classLoader = lpparam.classLoader;
             XposedHelpers.findAndHookMethod("com.chillyroomsdk.googleplay.MainActivity", lpparam.classLoader, "onCreate", Bundle.class, new XC_MethodHook() {
                 @Override
@@ -45,11 +47,11 @@ public class XposedInjector implements IXposedHookLoadPackage {
                     XposedBridge.log("libsoulknight.so loaded !");
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        //ComponentName name = currentActivity.startForegroundService(new Intent(currentActivity, FloatingService.class));
-                        //XposedBridge.log("Starting service " + name);
+                        ComponentName name = currentActivity.startForegroundService(new Intent(currentActivity, FloatingService.class));
+                        XposedBridge.log("Starting service " + name);
 
                         // TODO: start service in the app and setup inter-app communication (broadcastreceiver)
-                        MyBroadcastReceiver receiver = new MyBroadcastReceiver(MyBroadcastReceiver.Mode.GAME);
+                        /*MyBroadcastReceiver receiver = new MyBroadcastReceiver(MyBroadcastReceiver.Mode.GAME);
                         IntentFilter filter = new IntentFilter();
                         filter.addAction("fr.redboxing.mods.soulknight.INIT");
                         filter.addAction("fr.redboxing.mods.soulknight.CHANGE_FEATURE");
@@ -58,7 +60,7 @@ public class XposedInjector implements IXposedHookLoadPackage {
                         filter.addAction("fr.redboxing.mods.soulknight.GET_HEADING");
                         filter.addAction("fr.redboxing.mods.soulknight.GET_ICON");
                         filter.addAction("fr.redboxing.mods.soulknight.GET_ICON_WEBVIEW_DATA");
-                        currentActivity.registerReceiver(receiver, filter);
+                        currentActivity.registerReceiver(receiver, filter);*/
                     } else {
                         currentActivity.startService(new Intent(currentActivity, FloatingService.class));
                     }

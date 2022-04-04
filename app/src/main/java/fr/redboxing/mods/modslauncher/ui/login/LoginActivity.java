@@ -48,8 +48,6 @@ public class LoginActivity extends AppCompatActivity {
                         if(json.get("success").getAsBoolean()) {
                             loginViewModel.getLoginRepository().setLoggedInUser(token);
                             updateUiWithUser();
-                        } else {
-                            prefs.edit().remove(AES.encrypt("token")).apply();
                         }
                     } catch (Exception e) {
                         e.printStackTrace();

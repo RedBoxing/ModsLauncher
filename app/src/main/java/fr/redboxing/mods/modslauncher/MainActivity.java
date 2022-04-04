@@ -33,10 +33,23 @@ import fr.redboxing.mods.modslauncher.mods.ModsItemAdapter;
 import fr.redboxing.mods.modslauncher.utils.AES;
 import fr.redboxing.mods.modslauncher.utils.WebUtils;
 import org.json.JSONObject;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.xml.sax.SAXException;
+import org.zeroturnaround.zip.ZipUtil;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -50,7 +63,7 @@ import static fr.redboxing.mods.modslauncher.VirtualApp.XPOSED_INSTALLER_PACKAGE
 
 
 public class MainActivity extends AppCompatActivity {
-    public static final String SERVER_URL = "http://192.168.1.45:3000";
+    public static final String SERVER_URL = "https://api.redboxing.fr";
 
     private AlertDialog.Builder builder;
     private AlertDialog alertDialog;
@@ -120,31 +133,42 @@ public class MainActivity extends AppCompatActivity {
             } else if(this.isAppInstalled(mod.getPackage()) && !this.isVAppInstalled(mod.getPackage()) && this.getAppVersion(mod.getPackage()).equals(mod.getVersion())) {
                 alertDialog = setProgressDialog("Downloading " + mod.getName() + " v" + mod.getVersion());
 
-                this.updateMod(mod, (pkg) -> {
+                this.updateMod(mod, () -> {
                     Toast.makeText(this, "Successfully downloaded " + mod.getName() + " v" + mod.getVersion() + " !", Toast.LENGTH_SHORT).show();
                     alertDialog.dismiss();
                     launchApp(mod.getPackage());
                     Intent intent = new Intent();
-                    intent.setComponent(new ComponentName(pkg, pkg + ".FloatingActivity"));
+                    intent.setComponent(new ComponentName(mod.getPackage(), mod.getPackage() + ".FloatingActivity"));
+                    VActivityManager.get().startActivity(intent, 0);
+                }, () -> {
+                    alertDialog.dismiss();
+                    Toast.makeText(this, "An error occured while updating mod !", Toast.LENGTH_SHORT).show();
+                });
+            } else if(this.isAppInstalled(mod.getPackage()) && this.isVAppInstalled(mod.getPackage()) && this.getAppVersion(mod.getPackage()).equals(mod.getVersion()) && !this.getVAppVersion(mod.getPackage()).equals(mod.getVersion())) {
+                alertDialog = setProgressDialog("Updating " + mod.getName() + " v" + mod.getVersion());
+
+                this.updateMod(mod, () -> {
+                    Toast.makeText(this, "Successfully updated " + mod.getName() + " v" + mod.getVersion() + " !", Toast.LENGTH_SHORT).show();
+                    alertDialog.dismiss();
+                    launchApp(mod.getPackage());
+                    Intent intent = new Intent();
+                    intent.setComponent(new ComponentName(mod.getPackage(), mod.getPackage() + ".FloatingActivity"));
+                    VActivityManager.get().startActivity(intent, 0);
                 }, () -> {
                     alertDialog.dismiss();
                     Toast.makeText(this, "An error occured while updating mod !", Toast.LENGTH_SHORT).show();
                 });
             } else if(this.isAppInstalled(mod.getPackage()) && this.isVAppInstalled(mod.getPackage()) && this.getAppVersion(mod.getPackage()).equals(mod.getVersion()) && this.getVAppVersion(mod.getPackage()).equals(mod.getVersion())) {
-                alertDialog = setProgressDialog("Updating " + mod.getName() + " v" + mod.getVersion());
+                alertDialog = setProgressDialog("Launching " + mod.getName() + "...");
 
-                this.updateMod(mod, (pkg) -> {
-                    Toast.makeText(this, "Successfully updated " + mod.getName() + " v" + mod.getVersion() + " !", Toast.LENGTH_SHORT).show();
-                    alertDialog.dismiss();
-                    launchApp(mod.getPackage());
-                }, () -> {
-                    alertDialog.dismiss();
-                    Toast.makeText(this, "An error occured while updating mod !", Toast.LENGTH_SHORT).show();
-                });
-            } else if(this.isAppInstalled(mod.getPackage()) && this.isVAppInstalled(mod.getPackage()) && this.getAppVersion(mod.getPackage()) == mod.getVersion() && this.getVAppVersion(mod.getPackage()) == mod.getVersion()) {
-                updateMod(mod, (pkg) -> {
+                updateMod(mod, () -> {
                     Toast.makeText(this, "Launching " + mod.getName() + " v" + mod.getVersion() + " !", Toast.LENGTH_SHORT).show();
+                    alertDialog.dismiss();
                     launchApp(mod.getPackage());
+
+                    Intent intent = new Intent();
+                    intent.setComponent(new ComponentName(mod.getModPackage(), (mod.getModPackage() + ".FloatingService")));
+                    ComponentName cm = VActivityManager.get().startService(null, intent, null, 0);
                 }, () -> {
                     Toast.makeText(this, "An error occured while updating mod !", Toast.LENGTH_SHORT).show();
                 });
@@ -154,13 +178,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    @Override
-    protected void attachBaseContext(Context base) {
-        //XposedModuleEntry.init(base, new ArrayList<>(), true);
-        super.attachBaseContext(base);
-    }
-
-    private void updateMod(Mod mod, Consumer<String> callback, Runnable errorCallback) {
+    private void updateMod(Mod mod, Runnable callback, Runnable errorCallback) {
         new Handler(Looper.getMainLooper()).post(() -> {
             installApp(mod.getPackage());
 
@@ -176,20 +194,42 @@ public class MainActivity extends AppCompatActivity {
                                 fileOutputStream.close();
 
                                 InstallResult result = VirtualCore.get().installPackage(file.getAbsolutePath(), InstallStrategy.UPDATE_IF_EXIST);
-                                Log.e("InstallResult", result.toString());
                                 file.delete();
 
                                 if(result.isSuccess) {
                                     this.enableXposedModule(VEnvironment.getDataAppPackageDirectory(result.packageName) + "/base.apk");
-                                    recreate();
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                                        callback.accept(result.packageName);
-                                    }
+                                    // patch app's manifest
+                                    File baseApk = new File(VEnvironment.getDataAppPackageDirectory(result.packageName) + "/base.apk");
+                                    byte[] manifestBytes = ZipUtil.unpackEntry(baseApk, "AndroidManifest.xml");
+
+                                    // patch manifest to add service entry to application using DOM
+                                    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+                                    DocumentBuilder builder = factory.newDocumentBuilder();
+                                    Document document = builder.parse(new ByteArrayInputStream(manifestBytes));
+                                    Element root = document.getDocumentElement();
+                                    Element application = (Element) root.getElementsByTagName("application").item(0);
+                                    Element service = document.createElement("service");
+                                    service.setAttribute("android:name", (mod.getModPackage() + ".FloatingService"));
+                                    application.appendChild(service);
+
+                                    // write patched manifest to base.apk
+                                    TransformerFactory transformerFactory = TransformerFactory.newInstance();
+                                    Transformer transformer = transformerFactory.newTransformer();
+                                    DOMSource source = new DOMSource(document);
+
+                                    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                                    StreamResult resultStream = new StreamResult(outputStream);
+                                    transformer.transform(source, resultStream);
+
+                                    ZipUtil.replaceEntry(baseApk, "AndroidManifest.xml", outputStream.toByteArray());
+
+                                    callback.run();
                                 } else {
                                     errorCallback.run();
                                 }
-                            } catch (InvalidAlgorithmParameterException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | IOException e) {
+                            } catch (InvalidAlgorithmParameterException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | IOException | ParserConfigurationException | SAXException | TransformerException e) {
                                 e.printStackTrace();
+                                errorCallback.run();
                             }
                         },
                         Throwable::printStackTrace);
@@ -234,7 +274,6 @@ public class MainActivity extends AppCompatActivity {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
             File file = new File(VEnvironment.getDataUserPackageDirectory(0, XPOSED_INSTALLER_PACKAGE), "/exposed_conf/modules.list");
             try {
-                Log.e("File", file.getAbsolutePath());
                 if(!file.exists()) {
                     file.getParentFile().mkdirs();
                     file.createNewFile();
@@ -274,12 +313,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private String getVAppVersion(String pkg) {
-        try {
-            return VirtualCore.get().getPackageManager().getPackageInfo(pkg, 0).versionName;
-        } catch (PackageManager.NameNotFoundException ex) {
-            ex.printStackTrace();
-        }
-        return "N/A";
+        return VPackageManager.get().getPackageInfo(pkg, 0, 0).versionName;
     }
 
     private boolean isAppInstalled(String pkg) {

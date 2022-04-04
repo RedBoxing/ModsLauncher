@@ -49,6 +49,8 @@ JNIEXPORT void JNICALL Java_fr_redboxing_mods_soulknight_NativeLibrary_changeFea
 extern "C"
 JNIEXPORT void JNICALL Java_fr_redboxing_mods_soulknight_NativeLibrary_init(JNIEnv * env, jclass obj, jobject thiz){
     MakeToast(env, thiz, OBFUSCATE("<b><font color=#ff0000>Mod by RedBoxing</font></b>"));
+    pthread_t ptid;
+    pthread_create(&ptid, NULL, hack_thread, NULL);
 }
 
 extern "C"
@@ -106,6 +108,6 @@ JNIEXPORT jobjectArray JNICALL Java_fr_redboxing_mods_soulknight_NativeLibrary_g
 
 __attribute__((constructor))
 void lib_main() {
-    pthread_t ptid;
-    pthread_create(&ptid, NULL, hack_thread, NULL);
+    //pthread_t ptid;
+    //pthread_create(&ptid, NULL, hack_thread, NULL);
 }

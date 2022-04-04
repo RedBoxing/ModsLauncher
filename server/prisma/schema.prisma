@@ -21,6 +21,7 @@ model Mod {
     name String
     description String
     package String
+    modPackage String
     version String
     icon String
     createdAt DateTime @default(now())
