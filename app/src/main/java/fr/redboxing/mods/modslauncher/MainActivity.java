@@ -2,9 +2,7 @@ package fr.redboxing.mods.modslauncher;
 
 import android.app.AlertDialog;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -17,6 +15,12 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
+import brut.androlib.Androlib;
+import brut.androlib.ApkDecoder;
+import brut.androlib.options.BuildOptions;
+import brut.common.BrutException;
+import brut.util.AaptManager;
+import brut.util.OSDetection;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.lody.virtual.client.core.InstallStrategy;
@@ -25,8 +29,6 @@ import com.lody.virtual.client.ipc.VActivityManager;
 import com.lody.virtual.client.ipc.VPackageManager;
 import com.lody.virtual.os.VEnvironment;
 import com.lody.virtual.remote.InstallResult;
-import com.lody.virtual.remote.InstalledAppInfo;
-import com.wind.xposed.entry.XposedModuleEntry;
 import fr.redboxing.mods.modslauncher.data.LoginRepository;
 import fr.redboxing.mods.modslauncher.mods.Mod;
 import fr.redboxing.mods.modslauncher.mods.ModsItemAdapter;
@@ -36,6 +38,7 @@ import org.json.JSONObject;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.xml.sax.SAXException;
+import org.xmlpull.v1.XmlPullParserException;
 import org.zeroturnaround.zip.ZipUtil;
 
 import javax.crypto.BadPaddingException;
@@ -45,19 +48,19 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.Consumer;
 
 import static fr.redboxing.mods.modslauncher.VirtualApp.XPOSED_INSTALLER_PACKAGE;
 
@@ -199,13 +202,48 @@ public class MainActivity extends AppCompatActivity {
                                 if(result.isSuccess) {
                                     this.enableXposedModule(VEnvironment.getDataAppPackageDirectory(result.packageName) + "/base.apk");
                                     // patch app's manifest
-                                    File baseApk = new File(VEnvironment.getDataAppPackageDirectory(result.packageName) + "/base.apk");
-                                    byte[] manifestBytes = ZipUtil.unpackEntry(baseApk, "AndroidManifest.xml");
+                                    File baseApk = new File(VEnvironment.getDataAppPackageDirectory(mod.getPackage()) + "/base.apk");
+                                    File outputDir = new File(getFilesDir() + "/" + mod.getPackage());
+                                    if(outputDir.exists()) outputDir.delete();
+
+                                    try {
+                                        Field osField = OSDetection.class.getDeclaredField("OS");
+                                        osField.setAccessible(true);
+                                        Field modifiersField = Field.class.getDeclaredField("accessFlags");
+                                        modifiersField.setAccessible(true);
+                                        modifiersField.setInt(osField,osField.getModifiers() & ~Modifier.FINAL);
+                                        osField.set(null, "linux");
+
+                                        Log.e("TEST", (String) osField.get(null));
+                                    } catch (NoSuchFieldException | IllegalAccessException e) {
+                                        e.printStackTrace();
+                                    }
+
+                                    ApkDecoder apkDecoder = new ApkDecoder();
+                                    apkDecoder.setDecodeAssets((short) 0x0000);
+                                    apkDecoder.setDecodeSources((short) 0x0000);
+                                    apkDecoder.setDecodeResources((short) 0x0100);
+                                    apkDecoder.setForceDecodeManifest((short) 0x0001);
+                                    apkDecoder.setForceDelete(true);
+                                    apkDecoder.setOutDir(outputDir);
+                                    apkDecoder.setApkFile(baseApk);
+
+                                    try {
+                                        apkDecoder.decode();
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
+                                        errorCallback.run();
+                                        return;
+                                    } finally {
+                                        apkDecoder.close();
+                                    }
+
+                                    File manifestFile = new File(outputDir, "AndroidManifest.xml");
 
                                     // patch manifest to add service entry to application using DOM
                                     DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
                                     DocumentBuilder builder = factory.newDocumentBuilder();
-                                    Document document = builder.parse(new ByteArrayInputStream(manifestBytes));
+                                    Document document = builder.parse(new FileInputStream(manifestFile));
                                     Element root = document.getDocumentElement();
                                     Element application = (Element) root.getElementsByTagName("application").item(0);
                                     Element service = document.createElement("service");
@@ -217,11 +255,19 @@ public class MainActivity extends AppCompatActivity {
                                     Transformer transformer = transformerFactory.newTransformer();
                                     DOMSource source = new DOMSource(document);
 
-                                    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                                    StreamResult resultStream = new StreamResult(outputStream);
+                                    StreamResult resultStream = new StreamResult(new FileOutputStream(manifestFile));
                                     transformer.transform(source, resultStream);
 
-                                    ZipUtil.replaceEntry(baseApk, "AndroidManifest.xml", outputStream.toByteArray());
+                                    File patchedBaseApk = new File(outputDir, "base.apk");
+                                    Androlib androlib = new Androlib();
+                                    androlib.build(outputDir,patchedBaseApk);
+
+                                    // copy patched base.apk to data/app/
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                        FileUtils.copy(new FileInputStream(patchedBaseApk), new FileOutputStream(baseApk));
+                                    }
+
+                                    outputDir.delete();
 
                                     callback.run();
                                 } else {
@@ -230,6 +276,8 @@ public class MainActivity extends AppCompatActivity {
                             } catch (InvalidAlgorithmParameterException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | IOException | ParserConfigurationException | SAXException | TransformerException e) {
                                 e.printStackTrace();
                                 errorCallback.run();
+                            } catch (BrutException e) {
+                                e.printStackTrace();
                             }
                         },
                         Throwable::printStackTrace);
@@ -368,7 +416,7 @@ public class MainActivity extends AppCompatActivity {
         ll.addView(tvText);
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setCancelable(true);
+        builder.setCancelable(false);
         builder.setView(ll);
 
         AlertDialog dialog = builder.create();
