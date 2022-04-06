@@ -11,14 +11,16 @@ public class Mod implements Parcelable {
     private final String _package;
     private final String modPackage;
     private final String version;
+    private final String modVersion;
     private final String icon;
 
-    public Mod(String name, String description, String _package, String modPackage, String version, String icon) {
+    public Mod(String name, String description, String _package, String modPackage, String version, String modVersion, String icon) {
         this.name = name;
         this.description = description;
         this._package = _package;
         this.modPackage = modPackage;
         this.version = version;
+        this.modVersion = modVersion;
         this.icon = icon;
     }
 
@@ -28,6 +30,7 @@ public class Mod implements Parcelable {
         _package = in.readString();
         modPackage = in.readString();
         version = in.readString();
+        modVersion = in.readString();
         icon = in.readString();
     }
 
@@ -49,6 +52,10 @@ public class Mod implements Parcelable {
 
     public String getVersion() {
         return version;
+    }
+
+    public String getModVersion() {
+        return modVersion;
     }
 
     public String getIcon() {
@@ -79,6 +86,7 @@ public class Mod implements Parcelable {
         parcel.writeString(_package);
         parcel.writeString(modPackage);
         parcel.writeString(version);
+        parcel.writeString(modVersion);
         parcel.writeString(icon);
     }
 }

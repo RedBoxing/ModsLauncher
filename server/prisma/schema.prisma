@@ -23,6 +23,7 @@ model Mod {
     package String
     modPackage String
     version String
+    modVersion String
     icon String
     createdAt DateTime @default(now())
     updatedAt DateTime @default(now())

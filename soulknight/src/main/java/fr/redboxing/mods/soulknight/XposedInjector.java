@@ -1,15 +1,9 @@
 package fr.redboxing.mods.soulknight;
 
 import android.app.Activity;
-import android.app.AndroidAppHelper;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.res.AssetManager;
-import android.content.res.TypedArray;
-import android.content.res.XmlResourceParser;
-import android.net.ConnectivityManager;
 import android.os.Build;
 import android.os.Bundle;
 import de.robv.android.xposed.IXposedHookLoadPackage;
@@ -30,6 +24,8 @@ public class XposedInjector implements IXposedHookLoadPackage {
         if (!lpparam.packageName.equals("com.ChillyRoom.DungeonShooter"))
             return;
 
+        XposedBridge.log("Loaded xposed module for " + lpparam.packageName);
+
         try {
             Class.forName("de.robv.android.xposed.XposedBridge");
             ClassLoader classLoader = lpparam.classLoader;
@@ -40,11 +36,16 @@ public class XposedInjector implements IXposedHookLoadPackage {
                     Field currentActivityField = unityPlayer.getDeclaredField("currentActivity");
                     Activity currentActivity = (Activity) currentActivityField.get(null);
 
-                    new File(currentActivity.getFilesDir(), "libs/libsoulknight.so").delete();
-                    File lib = extractNativeLibrary(currentActivity, "soulknight");
-                    XposedBridge.log("Loading " + lib.getAbsolutePath());
-                    System.load(lib.getAbsolutePath());
-                    XposedBridge.log("libsoulknight.so loaded !");
+                    try {
+                        XposedBridge.log("Loading libsoulknight.so...");
+                        System.loadLibrary("soulknight");
+                    } catch (UnsatisfiedLinkError e) {
+                        new File(currentActivity.getFilesDir(), "libs/libsoulknight.so").delete();
+                        File lib = extractNativeLibrary(currentActivity, "soulknight");
+                        XposedBridge.log("Loading " + lib.getAbsolutePath() + "...");
+                        System.load(lib.getAbsolutePath());
+                        XposedBridge.log("libsoulknight.so loaded !");
+                    }
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         ComponentName name = currentActivity.startForegroundService(new Intent(currentActivity, FloatingService.class));

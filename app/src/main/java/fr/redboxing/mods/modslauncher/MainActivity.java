@@ -1,10 +1,10 @@
 package fr.redboxing.mods.modslauncher;
 
 import android.app.AlertDialog;
-import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
+import android.content.pm.PackageParser;
+import android.graphics.*;
 import android.net.Uri;
 import android.os.*;
 import android.provider.Settings;
@@ -16,19 +16,11 @@ import android.view.WindowManager;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
 import brut.androlib.Androlib;
+import brut.androlib.AndrolibException;
 import brut.androlib.ApkDecoder;
 import brut.androlib.options.BuildOptions;
-import brut.common.BrutException;
-import brut.util.AaptManager;
-import brut.util.OSDetection;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.lody.virtual.client.core.InstallStrategy;
-import com.lody.virtual.client.core.VirtualCore;
-import com.lody.virtual.client.ipc.VActivityManager;
-import com.lody.virtual.client.ipc.VPackageManager;
-import com.lody.virtual.os.VEnvironment;
-import com.lody.virtual.remote.InstallResult;
 import fr.redboxing.mods.modslauncher.data.LoginRepository;
 import fr.redboxing.mods.modslauncher.mods.Mod;
 import fr.redboxing.mods.modslauncher.mods.ModsItemAdapter;
@@ -37,33 +29,29 @@ import fr.redboxing.mods.modslauncher.utils.WebUtils;
 import org.json.JSONObject;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-import org.xml.sax.SAXException;
-import org.xmlpull.v1.XmlPullParserException;
-import org.zeroturnaround.zip.ZipUtil;
+import top.niunaijun.blackbox.BlackBoxCore;
+import top.niunaijun.blackbox.core.system.pm.BPackageSettings;
+import top.niunaijun.blackbox.core.system.user.BUserHandle;
+import top.niunaijun.blackbox.entity.pm.InstallResult;
+import top.niunaijun.blackbox.fake.frameworks.BPackageManager;
+import top.niunaijun.blackbox.fake.frameworks.BXposedManager;
+import top.niunaijun.blackbox.utils.FileUtils;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
-
-import static fr.redboxing.mods.modslauncher.VirtualApp.XPOSED_INSTALLER_PACKAGE;
-
 
 public class MainActivity extends AppCompatActivity {
     public static final String SERVER_URL = "https://api.redboxing.fr";
@@ -83,12 +71,6 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(intent, 1234);
                 return;
             }
-        }
-
-        try {
-            this.ensureXposed();
-        } catch (IOException e) {
-            e.printStackTrace();
         }
 
         ListView listView = findViewById(R.id.modsListView);
@@ -139,10 +121,7 @@ public class MainActivity extends AppCompatActivity {
                 this.updateMod(mod, () -> {
                     Toast.makeText(this, "Successfully downloaded " + mod.getName() + " v" + mod.getVersion() + " !", Toast.LENGTH_SHORT).show();
                     alertDialog.dismiss();
-                    launchApp(mod.getPackage());
-                    Intent intent = new Intent();
-                    intent.setComponent(new ComponentName(mod.getPackage(), mod.getPackage() + ".FloatingActivity"));
-                    VActivityManager.get().startActivity(intent, 0);
+                    BlackBoxCore.get().launchApk(mod.getPackage(), 0);
                 }, () -> {
                     alertDialog.dismiss();
                     Toast.makeText(this, "An error occured while updating mod !", Toast.LENGTH_SHORT).show();
@@ -153,10 +132,7 @@ public class MainActivity extends AppCompatActivity {
                 this.updateMod(mod, () -> {
                     Toast.makeText(this, "Successfully updated " + mod.getName() + " v" + mod.getVersion() + " !", Toast.LENGTH_SHORT).show();
                     alertDialog.dismiss();
-                    launchApp(mod.getPackage());
-                    Intent intent = new Intent();
-                    intent.setComponent(new ComponentName(mod.getPackage(), mod.getPackage() + ".FloatingActivity"));
-                    VActivityManager.get().startActivity(intent, 0);
+                    BlackBoxCore.get().launchApk(mod.getPackage(), 0);
                 }, () -> {
                     alertDialog.dismiss();
                     Toast.makeText(this, "An error occured while updating mod !", Toast.LENGTH_SHORT).show();
@@ -167,11 +143,7 @@ public class MainActivity extends AppCompatActivity {
                 updateMod(mod, () -> {
                     Toast.makeText(this, "Launching " + mod.getName() + " v" + mod.getVersion() + " !", Toast.LENGTH_SHORT).show();
                     alertDialog.dismiss();
-                    launchApp(mod.getPackage());
-
-                    Intent intent = new Intent();
-                    intent.setComponent(new ComponentName(mod.getModPackage(), (mod.getModPackage() + ".FloatingService")));
-                    ComponentName cm = VActivityManager.get().startService(null, intent, null, 0);
+                    BlackBoxCore.get().launchApk(mod.getPackage(), 0);
                 }, () -> {
                     Toast.makeText(this, "An error occured while updating mod !", Toast.LENGTH_SHORT).show();
                 });
@@ -182,173 +154,171 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateMod(Mod mod, Runnable callback, Runnable errorCallback) {
-        new Handler(Looper.getMainLooper()).post(() -> {
-            installApp(mod.getPackage());
+        if(!BlackBoxCore.get().isInstalledXposedModule(mod.getModPackage()) || !BPackageManager.get().getPackageInfo(mod.getModPackage(),0 , BUserHandle.USER_XPOSED).versionName.equals(mod.getModVersion()) || !BlackBoxCore.get().isInstalled(mod.getPackage(), 0) || !BlackBoxCore.getBPackageManager().getPackageInfo(mod.getPackage(), 0, 0).versionName.equals(mod.getVersion())) {
+            new Handler(Looper.getMainLooper()).post(() -> {
+                try {
+                    if (!BlackBoxCore.get().isInstalled(mod.getPackage(), 0) || !BPackageManager.get().getPackageInfo(mod.getPackage(), 0, 0).versionName.equals(mod.getVersion())) {
+                        // patch app's manifest
+                        File appDir = new File(getFilesDir(), "tmp/" + mod.getPackage());
+                        if(!appDir.exists()) {
+                            appDir.mkdirs();
+                        }
 
-            try {
-                WebUtils.downloadFile(SERVER_URL + "/api/mods/" + mod.getPackage() + "/get", new JSONObject().put("token", AES.encrypt(LoginRepository.getInstance(null).getToken())),
-                        response -> {
-                            try {
-                                byte[] decrypted = AES.decrypt(response);
+                        File origDir = new File(getPackageManager().getApplicationInfo(mod.getPackage(), 0).sourceDir).getParentFile();
+                        copyAppFiles(origDir, appDir);
 
-                                File file = new File(getFilesDir(), mod.getPackage() + "-" + mod.getVersion() + ".apk");
-                                FileOutputStream fileOutputStream = new FileOutputStream(file);
-                                fileOutputStream.write(decrypted);
-                                fileOutputStream.close();
+                        File apk = new File(appDir, "base.apk");
 
-                                InstallResult result = VirtualCore.get().installPackage(file.getAbsolutePath(), InstallStrategy.UPDATE_IF_EXIST);
-                                file.delete();
+                      /*  try {
+                            patchAPK(apk, mod);
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                            errorCallback.run();
+                            return;
+                        }*/
 
-                                if(result.isSuccess) {
-                                    this.enableXposedModule(VEnvironment.getDataAppPackageDirectory(result.packageName) + "/base.apk");
-                                    // patch app's manifest
-                                    File baseApk = new File(VEnvironment.getDataAppPackageDirectory(mod.getPackage()) + "/base.apk");
-                                    File outputDir = new File(getFilesDir() + "/" + mod.getPackage());
-                                    if(outputDir.exists()) outputDir.delete();
+                        InstallResult installResult = BlackBoxCore.get().installPackageAsUser(new File(getPackageManager().getApplicationInfo(mod.getPackage(), 0).sourceDir), 0);
+                        if (!installResult.success) {
+                            Log.e("MainActivity", installResult.msg);
+                            errorCallback.run();
+                            return;
+                        } else {
+                            BPackageSettings ps = BPackageManager.get().getPackageSetting(mod.getPackage());
+                            PackageParser.Package pkg = new PackageParser.Package(ps.pkg.packageName);
+                            PackageParser.ParseComponentArgs args = new PackageParser.ParseComponentArgs(pkg, );
+                            PackageParser.Service service = new PackageParser.Service();
+                        }
+                    }
 
+                    if (!BlackBoxCore.get().isInstalled(mod.getModPackage(), BUserHandle.USER_XPOSED) || !BPackageManager.get().getPackageInfo(mod.getModPackage(), 0, BUserHandle.USER_XPOSED).versionName.equals(mod.getModVersion())) {
+                        WebUtils.downloadFile(SERVER_URL + "/api/mods/" + mod.getPackage() + "/get", new JSONObject().put("token", AES.encrypt(LoginRepository.getInstance(null).getToken())),
+                                response -> {
                                     try {
-                                        Field osField = OSDetection.class.getDeclaredField("OS");
-                                        osField.setAccessible(true);
-                                        Field modifiersField = Field.class.getDeclaredField("accessFlags");
-                                        modifiersField.setAccessible(true);
-                                        modifiersField.setInt(osField,osField.getModifiers() & ~Modifier.FINAL);
-                                        osField.set(null, "linux");
+                                        byte[] decrypted = AES.decrypt(response);
 
-                                        Log.e("TEST", (String) osField.get(null));
-                                    } catch (NoSuchFieldException | IllegalAccessException e) {
-                                        e.printStackTrace();
-                                    }
+                                        File file = new File(getFilesDir(), mod.getPackage() + "-" + mod.getVersion() + ".apk");
+                                        FileOutputStream fileOutputStream = new FileOutputStream(file);
+                                        fileOutputStream.write(decrypted);
+                                        fileOutputStream.close();
 
-                                    ApkDecoder apkDecoder = new ApkDecoder();
-                                    apkDecoder.setDecodeAssets((short) 0x0000);
-                                    apkDecoder.setDecodeSources((short) 0x0000);
-                                    apkDecoder.setDecodeResources((short) 0x0100);
-                                    apkDecoder.setForceDecodeManifest((short) 0x0001);
-                                    apkDecoder.setForceDelete(true);
-                                    apkDecoder.setOutDir(outputDir);
-                                    apkDecoder.setApkFile(baseApk);
+                                        InstallResult result = BlackBoxCore.get().installXPModule(file);
+                                        Log.d("BlackBox", "Install result : { success: " + result.success + ", msg: " + result.msg + " }");
+                                        file.delete();
 
-                                    try {
-                                        apkDecoder.decode();
+                                        if (result.success) {
+                                            if (!BXposedManager.get().isModuleEnable(mod.getModPackage())) {
+                                                BXposedManager.get().setModuleEnable(mod.getModPackage(), true);
+                                            }
+
+                                            callback.run();
+                                        } else {
+                                            errorCallback.run();
+                                        }
                                     } catch (Exception e) {
                                         e.printStackTrace();
                                         errorCallback.run();
-                                        return;
-                                    } finally {
-                                        apkDecoder.close();
                                     }
+                                },
+                                Throwable::printStackTrace
+                        );
+                    } else {
+                        if (!BXposedManager.get().isModuleEnable(mod.getModPackage())) {
+                            BXposedManager.get().setModuleEnable(mod.getModPackage(), true);
+                        }
 
-                                    File manifestFile = new File(outputDir, "AndroidManifest.xml");
-
-                                    // patch manifest to add service entry to application using DOM
-                                    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-                                    DocumentBuilder builder = factory.newDocumentBuilder();
-                                    Document document = builder.parse(new FileInputStream(manifestFile));
-                                    Element root = document.getDocumentElement();
-                                    Element application = (Element) root.getElementsByTagName("application").item(0);
-                                    Element service = document.createElement("service");
-                                    service.setAttribute("android:name", (mod.getModPackage() + ".FloatingService"));
-                                    application.appendChild(service);
-
-                                    // write patched manifest to base.apk
-                                    TransformerFactory transformerFactory = TransformerFactory.newInstance();
-                                    Transformer transformer = transformerFactory.newTransformer();
-                                    DOMSource source = new DOMSource(document);
-
-                                    StreamResult resultStream = new StreamResult(new FileOutputStream(manifestFile));
-                                    transformer.transform(source, resultStream);
-
-                                    File patchedBaseApk = new File(outputDir, "base.apk");
-                                    Androlib androlib = new Androlib();
-                                    androlib.build(outputDir,patchedBaseApk);
-
-                                    // copy patched base.apk to data/app/
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                        FileUtils.copy(new FileInputStream(patchedBaseApk), new FileOutputStream(baseApk));
-                                    }
-
-                                    outputDir.delete();
-
-                                    callback.run();
-                                } else {
-                                    errorCallback.run();
-                                }
-                            } catch (InvalidAlgorithmParameterException | NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException | IOException | ParserConfigurationException | SAXException | TransformerException e) {
-                                e.printStackTrace();
-                                errorCallback.run();
-                            } catch (BrutException e) {
-                                e.printStackTrace();
-                            }
-                        },
-                        Throwable::printStackTrace);
-            } catch (Exception e) {
-                e.printStackTrace();
+                        callback.run();
+                    }
+                } catch(Exception e){
+                    e.printStackTrace();
+                }
+            });
+        } else {
+            if (!BXposedManager.get().isModuleEnable(mod.getModPackage())) {
+                BXposedManager.get().setModuleEnable(mod.getModPackage(), true);
             }
-        });
+            callback.run();
+        }
     }
 
-    private void ensureXposed() throws IOException {
-        if(!VirtualCore.get().isAppInstalled(XPOSED_INSTALLER_PACKAGE)) {
-            AlertDialog alertDialog = setProgressDialog("Setting up...");
+    private void copyAppFiles(File source, File target) throws IOException {
+        if(source.listFiles() == null || source.listFiles().length == 0) return;
 
-            InputStream is = this.getAssets().open("XposedInstaller_3.1.5.apk");
-            File xposedInstallerApk = new File(getFilesDir() + "/XposedInstaller_3.1.5.apk");
-            FileOutputStream fileOutputStream = new FileOutputStream(xposedInstallerApk);
+        for(File file : source.listFiles()) {
+            if(file.isDirectory()) {
+                copyAppFiles(file, new File(target, file.getName()));
+            } else {
+                FileUtils.copyFile(file, new File(target, file.getName()));
+            }
+        }
+    }
+
+    private void patchAPK(File apk, Mod mod) throws Exception {
+        File outputDir = new File(getFilesDir() + "/" + mod.getPackage());
+        File frameworkDir = new File(getFilesDir() + "/framework");
+        if(outputDir.exists()) outputDir.delete();
+
+        File apktoolJar = new File(getFilesDir() + "/apktool.jar");
+        if(!apktoolJar.exists()) {
+            FileOutputStream os = new FileOutputStream(apktoolJar);
+            InputStream is = getAssets().open("apktool_2.6.1.jar");
+
             byte[] buffer = new byte[1024];
             int length;
             while ((length = is.read(buffer)) > 0) {
-                fileOutputStream.write(buffer, 0, length);
+                os.write(buffer, 0, length);
             }
-            fileOutputStream.close();
+
             is.close();
-
-            if(!xposedInstallerApk.exists()) {
-                alertDialog.dismiss();
-                Toast.makeText(this, "Xposed installer not found !", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            InstallResult result = VirtualCore.get().installPackage(xposedInstallerApk.getAbsolutePath(), 0);
-            xposedInstallerApk.delete();
-
-            alertDialog.dismiss();
-            if(!result.isSuccess) {
-                Toast.makeText(this, "An error occured while installing Xposed !", Toast.LENGTH_SHORT).show();
-            }
+            os.close();
         }
-    }
 
-    private void enableXposedModule(String moduleFile) {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-            File file = new File(VEnvironment.getDataUserPackageDirectory(0, XPOSED_INSTALLER_PACKAGE), "/exposed_conf/modules.list");
-            try {
-                if(!file.exists()) {
-                    file.getParentFile().mkdirs();
-                    file.createNewFile();
-                }
+        ApkDecoder apkDecoder = new ApkDecoder();
+        apkDecoder.setDecodeAssets((short) 0x0000);
+        apkDecoder.setDecodeSources((short) 0x0000);
+        //apkDecoder.setDecodeResources((short) 0x0100);
+        apkDecoder.setForceDelete(true);
+        apkDecoder.setFrameworkDir(frameworkDir.getAbsolutePath());
+        apkDecoder.setOutDir(outputDir);
+        apkDecoder.setApkFile(apk);
 
-                BufferedReader reader = new BufferedReader(new FileReader(file));
-                String line = reader.readLine();
-                boolean found = false;
-                while(line != null) {
-                    if(line.contains(moduleFile)) {
-                        found = true;
-                        reader.close();
-                        break;
-                    }
-
-                    line = reader.readLine();
-                }
-
-                if(!found) {
-                    BufferedWriter writer = new BufferedWriter(new FileWriter(file, true));
-                    writer.write(moduleFile + "\n");
-                    writer.close();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        try {
+            apkDecoder.decode();
+        } finally {
+            apkDecoder.close();
         }
+
+        File manifestFile = new File(outputDir, "AndroidManifest.xml");
+
+        // patch manifest to add service entry to application using DOM
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document document = builder.parse(new FileInputStream(manifestFile));
+        Element root = document.getDocumentElement();
+        Element application = (Element) root.getElementsByTagName("application").item(0);
+        Element service = document.createElement("service");
+        service.setAttribute("android:name", (mod.getModPackage() + ".FloatingService"));
+        application.appendChild(service);
+
+        // write patched manifest to base.apk
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        Transformer transformer = transformerFactory.newTransformer();
+        DOMSource source = new DOMSource(document);
+
+        StreamResult resultStream = new StreamResult(new FileOutputStream(manifestFile));
+        transformer.transform(source, resultStream);
+
+        File patchedBaseApk = new File(outputDir, "base.apk");
+
+        BuildOptions buildOptions = new BuildOptions();
+        buildOptions.frameworkFolderLocation = frameworkDir.getAbsolutePath();
+        Androlib androlib = new Androlib(buildOptions);
+        androlib.build(outputDir,patchedBaseApk);
+
+        // copy patched base.apk to data/app/
+        apk.delete();
+        FileUtils.copyFile(patchedBaseApk, apk);
+
+        outputDir.delete();
     }
 
     private String getAppVersion(String pkg) {
@@ -361,7 +331,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private String getVAppVersion(String pkg) {
-        return VPackageManager.get().getPackageInfo(pkg, 0, 0).versionName;
+        return BPackageManager.get().getPackageInfo(pkg, 0, 0).versionName;
     }
 
     private boolean isAppInstalled(String pkg) {
@@ -369,21 +339,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean isVAppInstalled(String pkg) {
-        return VirtualCore.get().getInstalledAppInfo(pkg, 0) != null;
-    }
-
-    public void launchApp(String pkg)
-    {
-        Intent launch = VirtualCore.get().getLaunchIntent(pkg, 0);
-        VActivityManager.get().startActivity(launch, 0);
-    }
-
-    public void installApp(String pkg) {
-        try {
-            VirtualCore.get().installPackage(getPackageManager().getApplicationInfo(pkg, 0).sourceDir, 0);
-        } catch (PackageManager.NameNotFoundException ex) {
-            ex.printStackTrace();
-        }
+        return BPackageManager.get().getApplicationInfo(pkg, 0, 0) != null;
     }
 
     public AlertDialog setProgressDialog(String title) {

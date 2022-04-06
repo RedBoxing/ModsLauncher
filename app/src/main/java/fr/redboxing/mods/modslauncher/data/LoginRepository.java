@@ -1,7 +1,7 @@
 package fr.redboxing.mods.modslauncher.data;
 
 import android.content.SharedPreferences;
-import fr.redboxing.mods.modslauncher.VirtualApp;
+import fr.redboxing.mods.modslauncher.App;
 import fr.redboxing.mods.modslauncher.utils.AES;
 
 import static android.content.Context.MODE_PRIVATE;
@@ -38,7 +38,7 @@ public class LoginRepository {
 
     public void setLoggedInUser(String token) {
         this.token = token;
-        SharedPreferences.Editor editor = VirtualApp.CONTEXT.getSharedPreferences("auth", MODE_PRIVATE).edit();
+        SharedPreferences.Editor editor = App.CONTEXT.getSharedPreferences("auth", MODE_PRIVATE).edit();
         try {
             editor.putString(AES.encrypt("token"), AES.encrypt(token));
         } catch (Exception e) {
