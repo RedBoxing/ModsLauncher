@@ -45,6 +45,31 @@ public class LoginDataSource {
         }
     }
 
+    public void register(String username, String password, String inviteCode, LoginCallback callback) {
+        try {
+            WebUtils.postString(MainActivity.SERVER_URL + "/api/register", new JSONObject().put("encEmail", AES.encrypt(username)).put("encPass", AES.encrypt(password)).put("encInvite", AES.encrypt(inviteCode)),
+                    encrypted -> {
+                        try {
+                            JsonObject jsonObject = new Gson().fromJson(AES.decrypt(encrypted), JsonObject.class);
+                            if (jsonObject.get("success").getAsBoolean()) {
+                                callback.onLogin(new Result.Success<>(jsonObject.get("token").getAsString()));
+                            } else {
+                                callback.onLogin(new Result.Error(new IOException("Login failed : " + jsonObject.get("error").getAsString())));
+                            }
+                        } catch (NoSuchPaddingException | NoSuchAlgorithmException | InvalidAlgorithmParameterException | InvalidKeyException | BadPaddingException | IllegalBlockSizeException e) {
+                            e.printStackTrace();
+                        }
+                    },
+                    error -> {
+                        error.printStackTrace();
+                        callback.onLogin(new Result.Error(new IOException(error.getMessage())));
+                    });
+        } catch (Exception e) {
+            e.printStackTrace();
+            callback.onLogin(new Result.Error(new IOException("Error logging in", e)));
+        }
+    }
+
     public void logout() {
         // TODO: revoke authentication
     }

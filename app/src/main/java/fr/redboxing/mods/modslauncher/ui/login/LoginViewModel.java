@@ -43,6 +43,17 @@ public class LoginViewModel extends ViewModel {
         });
     }
 
+    public void register(String email, String password, String inviteCode) {
+        loginRepository.register(email, password, inviteCode, result -> {
+            if (result instanceof Result.Success) {
+                loginResult.setValue(new LoginResult(true));
+            } else {
+                loginResult.setValue(new LoginResult(R.string.register_failed));
+                Log.e("LoginViewModel", "Register failed : " + result);
+            }
+        });
+    }
+
     public void loginDataChanged(String username, String password) {
         if (!isUserNameValid(username)) {
             loginFormState.setValue(new LoginFormState(R.string.invalid_username, null));

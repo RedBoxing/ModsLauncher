@@ -99,6 +99,58 @@ function init() {
             success: true
         })));
     }));
+    router.post('/register', (req, res) => __awaiter(this, void 0, void 0, function* () {
+        const { encEmail, encPass, encInvite } = req.body;
+        if (!encEmail || !encPass || !encInvite) {
+            return res.send((0, crypto_1.encrypt)(JSON.stringify({
+                success: false,
+                error: 'Missing fields'
+            })));
+        }
+        const email = (0, crypto_1.decrypt)(encEmail);
+        const password = (0, crypto_1.decrypt)(encPass);
+        const inviteCode = (0, crypto_1.decrypt)(encInvite);
+        const user = yield database_1.default.user.findFirst({
+            where: {
+                email: email
+            }
+        });
+        if (user) {
+            return res.send((0, crypto_1.encrypt)(JSON.stringify({
+                success: false,
+                error: 'User already exists'
+            })));
+        }
+        const invite = yield database_1.default.invite.findFirst({
+            where: {
+                code: inviteCode
+            }
+        });
+        if (!invite) {
+            return res.send((0, crypto_1.encrypt)(JSON.stringify({
+                success: false,
+                error: 'Invalid invite code'
+            })));
+        }
+        const newUser = yield database_1.default.user.create({
+            data: {
+                email: email,
+                password: yield (0, crypto_1.hashPassword)(password),
+            }
+        });
+        yield database_1.default.invite.deleteMany({
+            where: {
+                code: inviteCode,
+            },
+        });
+        res.send((0, crypto_1.encrypt)(JSON.stringify({
+            success: true,
+            token: jsonwebtoken_1.default.sign({
+                id: newUser.id,
+                email: newUser.email
+            }, process.env.JWT_SECRET)
+        })));
+    }));
     return router;
 }
 exports.default = init;

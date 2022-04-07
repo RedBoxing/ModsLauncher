@@ -3,11 +3,15 @@ package fr.redboxing.mods.modslauncher;
 import android.annotation.SuppressLint;
 import android.app.Application;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.util.Log;
+import androidx.core.splashscreen.SplashScreen;
 import top.niunaijun.blackbox.BlackBoxCore;
 import top.niunaijun.blackbox.app.configuration.ClientConfiguration;
 import top.niunaijun.blackbox.fake.frameworks.BXposedManager;
 import top.niunaijun.blackbox.utils.compat.SystemPropertiesCompat;
+
+import java.util.List;
 
 public class App extends Application {
     @SuppressLint("StaticFieldLeak")
@@ -41,6 +45,11 @@ public class App extends Application {
                 return false;
             }
         });
+
+        List<ApplicationInfo> apps = BlackBoxCore.get().getInstalledApplications(0, 0);
+        for(ApplicationInfo app : apps) {
+            BlackBoxCore.get().uninstallPackage(app.packageName);
+        }
 
         if(!BlackBoxCore.get().isInstallGms(0)) {
             BlackBoxCore.get().installGms(0);

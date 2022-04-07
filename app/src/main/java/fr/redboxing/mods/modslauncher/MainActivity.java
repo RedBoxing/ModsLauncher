@@ -16,10 +16,6 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
-import brut.androlib.Androlib;
-import brut.androlib.AndrolibException;
-import brut.androlib.ApkDecoder;
-import brut.androlib.options.BuildOptions;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import fr.redboxing.mods.modslauncher.data.LoginRepository;
@@ -28,9 +24,8 @@ import fr.redboxing.mods.modslauncher.mods.ModsItemAdapter;
 import fr.redboxing.mods.modslauncher.utils.AES;
 import fr.redboxing.mods.modslauncher.utils.WebUtils;
 import org.json.JSONObject;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
 import top.niunaijun.blackbox.BlackBoxCore;
+import top.niunaijun.blackbox.core.system.pm.BPackage;
 import top.niunaijun.blackbox.core.system.pm.BPackageSettings;
 import top.niunaijun.blackbox.core.system.user.BUserHandle;
 import top.niunaijun.blackbox.entity.pm.InstallResult;
@@ -41,12 +36,6 @@ import top.niunaijun.blackbox.utils.FileUtils;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -64,15 +53,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        if (Build.VERSION.SDK_INT >= 23) {
-            if (!Settings.canDrawOverlays(this)) {
-                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:" + getPackageName()));
-                startActivityForResult(intent, 1234);
-                return;
-            }
-        }
 
         ListView listView = findViewById(R.id.modsListView);
         ArrayList<Mod> mods = new ArrayList<>();
@@ -159,43 +139,34 @@ public class MainActivity extends AppCompatActivity {
             new Handler(Looper.getMainLooper()).post(() -> {
                 try {
                     if (!BlackBoxCore.get().isInstalled(mod.getPackage(), 0) || !BPackageManager.get().getPackageInfo(mod.getPackage(), 0, 0).versionName.equals(mod.getVersion())) {
-                        // patch app's manifest
-                        File appDir = new File(getFilesDir(), "tmp/" + mod.getPackage());
-                        if(!appDir.exists()) {
-                            appDir.mkdirs();
-                        }
-
-                        File origDir = new File(getPackageManager().getApplicationInfo(mod.getPackage(), 0).sourceDir).getParentFile();
-                        copyAppFiles(origDir, appDir);
-
-                        File apk = new File(appDir, "base.apk");
-
-                      /*  try {
-                            patchAPK(apk, mod);
-                        } catch (Exception ex) {
-                            ex.printStackTrace();
-                            errorCallback.run();
-                            return;
-                        }*/
-
                         InstallResult installResult = BlackBoxCore.get().installPackageAsUser(new File(getPackageManager().getApplicationInfo(mod.getPackage(), 0).sourceDir), 0);
                         if (!installResult.success) {
                             Log.e("MainActivity", installResult.msg);
                             errorCallback.run();
                             return;
                         } else {
-                            BPackageSettings ps = BPackageManager.get().getPackageSetting(mod.getPackage());
-                            PackageParser.Package pkg = ps.pkg.parsedPackage;
-
+                            callback.run();
+                            return;
+                          /*  BPackageSettings ps = BPackageManager.get().getPackageSetting(mod.getPackage(), 0);
+                            Log.e("MainActivity", "Package setting: " + ps);
+                            Log.e("MainActivity", "Package: " + ps.pkg);
+                            Log.e("MainActivity", "applicationInfo: " + ps.pkg.applicationInfo);
                             ServiceInfo serviceInfo = new ServiceInfo();
-                            serviceInfo.applicationInfo = pkg.applicationInfo;
+                            serviceInfo.applicationInfo = ps.pkg.applicationInfo;
                             serviceInfo.enabled = true;
                             serviceInfo.name = mod.getModPackage() + ".FloatingService";
 
-                            PackageParser.ParseComponentArgs args = new PackageParser.ParseComponentArgs(null, null, 0, 0, 0, 0, 0, null, 0, 0, 0);
+                            String[] outError = new String[1];
+                            PackageParser.Package pkg = new PackageParser.Package(ps.pkg.packageName);
+                            pkg.applicationInfo = ps.pkg.applicationInfo;
+                            PackageParser.ParseComponentArgs args = new PackageParser.ParseComponentArgs(pkg, outError, 0, 0, 0, 0, 0, 0, null, 0, 0, 1);
+                            Log.e("MainActivity", "outError: " + Arrays.toString(outError));
                             PackageParser.Service service = new PackageParser.Service(args, serviceInfo);
-                            ps.pkg.services.add(service);
+                            PackageParser.ServiceIntentInfo serviceIntentInfo = new PackageParser.ServiceIntentInfo(service);
+                            service.intents.add(serviceIntentInfo);
+                            ps.pkg.services.add(new BPackage.Service(service));
                             ps.save();
+                            Log.e("MainActivity", "Service added");*/
                         }
                     }
 
@@ -259,75 +230,6 @@ public class MainActivity extends AppCompatActivity {
                 FileUtils.copyFile(file, new File(target, file.getName()));
             }
         }
-    }
-
-    private void patchAPK(File apk, Mod mod) throws Exception {
-        File outputDir = new File(getFilesDir() + "/" + mod.getPackage());
-        File frameworkDir = new File(getFilesDir() + "/framework");
-        if(outputDir.exists()) outputDir.delete();
-
-        File apktoolJar = new File(getFilesDir() + "/apktool.jar");
-        if(!apktoolJar.exists()) {
-            FileOutputStream os = new FileOutputStream(apktoolJar);
-            InputStream is = getAssets().open("apktool_2.6.1.jar");
-
-            byte[] buffer = new byte[1024];
-            int length;
-            while ((length = is.read(buffer)) > 0) {
-                os.write(buffer, 0, length);
-            }
-
-            is.close();
-            os.close();
-        }
-
-        ApkDecoder apkDecoder = new ApkDecoder();
-        apkDecoder.setDecodeAssets((short) 0x0000);
-        apkDecoder.setDecodeSources((short) 0x0000);
-        //apkDecoder.setDecodeResources((short) 0x0100);
-        apkDecoder.setForceDelete(true);
-        apkDecoder.setFrameworkDir(frameworkDir.getAbsolutePath());
-        apkDecoder.setOutDir(outputDir);
-        apkDecoder.setApkFile(apk);
-
-        try {
-            apkDecoder.decode();
-        } finally {
-            apkDecoder.close();
-        }
-
-        File manifestFile = new File(outputDir, "AndroidManifest.xml");
-
-        // patch manifest to add service entry to application using DOM
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        Document document = builder.parse(new FileInputStream(manifestFile));
-        Element root = document.getDocumentElement();
-        Element application = (Element) root.getElementsByTagName("application").item(0);
-        Element service = document.createElement("service");
-        service.setAttribute("android:name", (mod.getModPackage() + ".FloatingService"));
-        application.appendChild(service);
-
-        // write patched manifest to base.apk
-        TransformerFactory transformerFactory = TransformerFactory.newInstance();
-        Transformer transformer = transformerFactory.newTransformer();
-        DOMSource source = new DOMSource(document);
-
-        StreamResult resultStream = new StreamResult(new FileOutputStream(manifestFile));
-        transformer.transform(source, resultStream);
-
-        File patchedBaseApk = new File(outputDir, "base.apk");
-
-        BuildOptions buildOptions = new BuildOptions();
-        buildOptions.frameworkFolderLocation = frameworkDir.getAbsolutePath();
-        Androlib androlib = new Androlib(buildOptions);
-        androlib.build(outputDir,patchedBaseApk);
-
-        // copy patched base.apk to data/app/
-        apk.delete();
-        FileUtils.copyFile(patchedBaseApk, apk);
-
-        outputDir.delete();
     }
 
     private String getAppVersion(String pkg) {

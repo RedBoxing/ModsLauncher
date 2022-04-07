@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import prisma from '../database';
-import { encrypt, decrypt, validatePassword, encryptBuffer } from '../utils/crypto';
+import { encrypt, decrypt, validatePassword, encryptBuffer, hashPassword } from '../utils/crypto';
 import fs from 'fs';
 import jwt from 'jsonwebtoken';
 import { verifyToken } from '../middleware/auth';
@@ -97,6 +97,70 @@ export default function init() : Router {
             success: true
         })));
     });
+
+    router.post('/register', async (req, res) => {
+        const { encEmail, encPass, encInvite } = req.body;
+
+        if(!encEmail || !encPass || !encInvite) {
+            return res.send(encrypt(JSON.stringify({
+                success: false,
+                error: 'Missing fields'
+            })));
+        }
+        
+        const email = decrypt(encEmail);
+        const password = decrypt(encPass);
+        const inviteCode = decrypt(encInvite);
+
+        const user = await prisma.user.findFirst({
+            where: {
+                email: email
+            }
+        });
+
+        if(user) {
+            return res.send(encrypt(JSON.stringify({
+                success: false,
+                error: 'User already exists'
+            })));
+        }
+        
+        const invite = await prisma.invite.findFirst({
+            where: {
+                code: inviteCode
+            }
+        });
+
+        if(!invite) {
+            return res.send(encrypt(JSON.stringify({
+                success: false,
+                error: 'Invalid invite code'
+            })));
+        }
+
+        const newUser = await prisma.user.create({
+            data: {
+                email: email,
+                password: await hashPassword(password),
+                
+            }
+        });
+
+        await prisma.invite.deleteMany({
+            where: {
+                code: inviteCode,
+            },
+        });
+
+        res.send(encrypt(JSON.stringify({
+            success: true,
+            token: jwt.sign({
+                id: newUser.id,
+                email: newUser.email
+            }, process.env.JWT_SECRET)
+        })));
+    });
+
 
     return router;
 }

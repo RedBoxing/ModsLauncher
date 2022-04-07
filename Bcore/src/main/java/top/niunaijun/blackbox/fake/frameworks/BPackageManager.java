@@ -279,7 +279,7 @@ public class BPackageManager extends BlackManager<IBPackageManagerService> {
         e.printStackTrace();
     }
 
-    public BPackageSettings getPackageSetting(String pkg) throws RemoteException {
-        return getService().getPackageSettings(pkg);
+    public BPackageSettings getPackageSetting(String pkg, int user) throws RemoteException {
+        return getService().getPackageSettings(pkg, user);
     }
 }

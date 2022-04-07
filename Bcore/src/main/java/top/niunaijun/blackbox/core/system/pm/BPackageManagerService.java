@@ -821,7 +821,8 @@ public class BPackageManagerService extends IBPackageManagerService.Stub impleme
     }
 
     @Override
-    public BPackageSettings getPackageSettings(String packageName) throws RemoteException {
-        return getBPackageSetting(packageName);
+    public BPackageSettings getPackageSettings(String packageName, int user) {
+        PackageParser.Package pkg = parserApk(new File(getPackageInfo(packageName, 0, user).applicationInfo.sourceDir).getParent());
+        return mSettings.getPackageLPw(packageName, pkg, InstallOption.installByStorage());
     }
 }

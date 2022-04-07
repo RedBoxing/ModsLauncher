@@ -4,7 +4,7 @@
     "type": "APK",
     "kind": "Directory"
   },
-  "applicationId": "fr.redboxing.mods.soulknight",
+  "applicationId": "fr.redboxing.mods.soulknightlauncher",
   "variantName": "release",
   "elements": [
     {
@@ -13,7 +13,7 @@
       "attributes": [],
       "versionCode": 1,
       "versionName": "1.0",
-      "outputFile": "soulknight-release.apk"
+      "outputFile": "app-release.apk"
     }
   ],
   "elementType": "File"

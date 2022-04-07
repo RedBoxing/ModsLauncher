@@ -8,8 +8,7 @@ datasource db {
 }
 
 model User {
-    id Int @id
-    name String
+    id Int @id @default(autoincrement())
     email String
     password String
     createdAt DateTime @default(now())
@@ -17,7 +16,7 @@ model User {
 }
 
 model Mod {
-    id Int @id
+    id Int @id @default(autoincrement())
     name String
     description String
     package String
@@ -25,6 +24,14 @@ model Mod {
     version String
     modVersion String
     icon String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now())
+}
+
+model Invite {
+    id Int @id @default(autoincrement())
+    code String @unique
+    userId Int
     createdAt DateTime @default(now())
     updatedAt DateTime @default(now())
 }

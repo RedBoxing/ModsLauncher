@@ -57,6 +57,16 @@ public class LoginRepository {
         });
     }
 
+    public void register(String email, String password, String inviteCode, LoginCallback callback) {
+        dataSource.register(email, password, inviteCode, result -> {
+            if (result instanceof Result.Success) {
+                setLoggedInUser(((Result.Success<String>) result).getData());
+            }
+
+            callback.onLogin(result);
+        });
+    }
+
     public String getToken() {
         return token;
     }
