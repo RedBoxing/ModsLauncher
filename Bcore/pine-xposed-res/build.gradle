@@ -40,6 +40,10 @@ android {
     buildFeatures {
         // prefab true
     }
+
+    lintOptions {
+        abortOnError false
+    }
 }
 
 dependencies {

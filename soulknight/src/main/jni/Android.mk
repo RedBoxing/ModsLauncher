@@ -16,7 +16,9 @@ LOCAL_SRC_FILES := main.cpp \
            Substrate/SubstrateDebug.cpp \
            Substrate/SubstrateHook.cpp \
            Substrate/SubstratePosixMemory.cpp \
-           X64Hook\And64InlineHook.cpp \
+           X64Hook/And64InlineHook.cpp \
+           Il2Cpp/Il2Cpp.cpp \
+           Il2Cpp/API/API.cpp 
 
 LOCAL_LDLIBS := -llog -landroid
 

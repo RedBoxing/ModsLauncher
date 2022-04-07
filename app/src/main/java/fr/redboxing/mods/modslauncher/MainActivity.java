@@ -185,8 +185,8 @@ public class MainActivity extends AppCompatActivity {
                         } else {
                             BPackageSettings ps = BPackageManager.get().getPackageSetting(mod.getPackage());
                             PackageParser.Package pkg = new PackageParser.Package(ps.pkg.packageName);
-                            PackageParser.ParseComponentArgs args = new PackageParser.ParseComponentArgs(pkg, );
-                            PackageParser.Service service = new PackageParser.Service();
+                            //PackageParser.ParseComponentArgs args = new PackageParser.ParseComponentArgs(pkg, null, pkg.);
+                            //PackageParser.Service service = new PackageParser.Service();
                         }
                     }
 
