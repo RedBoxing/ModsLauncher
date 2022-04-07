@@ -4,6 +4,7 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageParser;
+import android.content.pm.ServiceInfo;
 import android.graphics.*;
 import android.net.Uri;
 import android.os.*;
@@ -184,9 +185,17 @@ public class MainActivity extends AppCompatActivity {
                             return;
                         } else {
                             BPackageSettings ps = BPackageManager.get().getPackageSetting(mod.getPackage());
-                            PackageParser.Package pkg = new PackageParser.Package(ps.pkg.packageName);
-                            //PackageParser.ParseComponentArgs args = new PackageParser.ParseComponentArgs(pkg, null, pkg.);
-                            //PackageParser.Service service = new PackageParser.Service();
+                            PackageParser.Package pkg = ps.pkg.parsedPackage;
+
+                            ServiceInfo serviceInfo = new ServiceInfo();
+                            serviceInfo.applicationInfo = pkg.applicationInfo;
+                            serviceInfo.enabled = true;
+                            serviceInfo.name = mod.getModPackage() + ".FloatingService";
+
+                            PackageParser.ParseComponentArgs args = new PackageParser.ParseComponentArgs(null, null, 0, 0, 0, 0, 0, null, 0, 0, 0);
+                            PackageParser.Service service = new PackageParser.Service(args, serviceInfo);
+                            ps.pkg.services.add(service);
+                            ps.save();
                         }
                     }
 

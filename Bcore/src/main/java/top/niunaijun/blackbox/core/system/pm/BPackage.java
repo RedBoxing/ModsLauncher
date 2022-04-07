@@ -65,7 +65,10 @@ public class BPackage implements Parcelable {
 
     public InstallOption installOption;
 
+    public PackageParser.Package parsedPackage;
+
     public BPackage(PackageParser.Package aPackage) {
+        this.parsedPackage = aPackage;
         this.activities = new ArrayList<>(aPackage.activities.size());
         for (PackageParser.Activity activity : aPackage.activities) {
             Activity selfActivity = new Activity(activity);
