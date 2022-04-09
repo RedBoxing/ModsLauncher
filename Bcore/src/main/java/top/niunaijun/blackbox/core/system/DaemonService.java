@@ -5,6 +5,7 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
 
@@ -53,12 +54,11 @@ public class DaemonService extends Service {
     }
 
     private void showNotification() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(getPackageName() + ".blackbox_proxy", getPackageName() + ".blackbox_proxy", NotificationManager.IMPORTANCE_NONE);
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
             NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            NotificationChannel channel = new NotificationChannel(getPackageName() + ".blackbox_proxy", "blackbox_proxy", NotificationManager.IMPORTANCE_MAX);
             manager.createNotificationChannel(channel);
         }
-
         NotificationCompat.Builder builder = new NotificationCompat.Builder(getApplicationContext(), getPackageName() + ".blackbox_proxy")
                 .setPriority(NotificationCompat.PRIORITY_MAX);
         startForeground(NOTIFY_ID, builder.build());

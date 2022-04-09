@@ -61,26 +61,25 @@ public class PackageParser {
         final int nameRes;
         final int labelRes;
         final int iconRes;
-        final int roundIconRes;
         final int logoRes;
         final int bannerRes;
 
         String tag;
         TypedArray sa;
 
-        ParsePackageItemArgs(final Package owner, final String[] outError, final int nameRes, final int labelRes, final int iconRes, final int roundIconRes, final int logoRes, final int bannerRes) { throw new RuntimeException("Stub!");
+        ParsePackageItemArgs(final Package owner, final String[] outError, final int nameRes, final int labelRes, final int iconRes, final int logoRes, final int bannerRes) { throw new RuntimeException("Stub!");
         }
     }
 
-    public static class ParseComponentArgs extends ParsePackageItemArgs {
+    static class ParseComponentArgs extends ParsePackageItemArgs {
         final String[] sepProcesses;
         final int processRes;
         final int descriptionRes;
         final int enabledRes;
         int flags;
 
-        public ParseComponentArgs(final Package owner, final String[] outError, final int nameRes, final int labelRes, final int iconRes, final int roundIconRes, final int logoRes, final int bannerRes, final String[] sepProcesses, final int processRes, final int descriptionRes, final int enabledRes) {
-            super(owner, outError, nameRes, labelRes, iconRes, roundIconRes, logoRes, bannerRes);
+        ParseComponentArgs(final Package owner, final String[] outError, final int nameRes, final int labelRes, final int iconRes, final int logoRes, final int bannerRes, final String[] sepProcesses, final int processRes, final int descriptionRes, final int enabledRes) {
+            super(owner, outError, nameRes, labelRes, iconRes, logoRes, bannerRes);
             throw new RuntimeException("Stub!");
         }
     }

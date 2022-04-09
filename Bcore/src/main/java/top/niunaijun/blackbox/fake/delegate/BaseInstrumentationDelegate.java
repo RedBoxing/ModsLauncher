@@ -57,7 +57,9 @@ public class BaseInstrumentationDelegate extends Instrumentation {
 
     @Override
     public void addResults(Bundle results) {
-        mBaseInstrumentation.addResults(results);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            mBaseInstrumentation.addResults(results);
+        }
     }
 
     @Override

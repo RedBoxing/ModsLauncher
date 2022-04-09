@@ -29,16 +29,6 @@ public class SystemPropertiesCompat {
         return null;
     }
 
-    public static void set(String key, String val) {
-        try {
-            Reflector.on("android.os.SystemProperties")
-                    .method("set", String.class, String.class)
-                    .call(key, val);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     public static boolean isExist(String key) {
         return !TextUtils.isEmpty(get(key));
     }

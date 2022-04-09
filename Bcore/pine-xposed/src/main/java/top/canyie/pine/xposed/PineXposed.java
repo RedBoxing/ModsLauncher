@@ -1,6 +1,5 @@
 package top.canyie.pine.xposed;
 
-import android.annotation.SuppressLint;
 import android.content.pm.ApplicationInfo;
 import android.util.Log;
 
@@ -128,7 +127,7 @@ public final class PineXposed {
         boolean fastPath = mcl instanceof ModuleClassLoader;
         try {
             String name = "com.android.tools.fd.runtime.BootstrapApplication";
-            @SuppressLint("PrivateApi") Class<?> cls = fastPath ? ((ModuleClassLoader) mcl).findClass(name) : mcl.loadClass(name);
+            Class<?> cls = fastPath ? ((ModuleClassLoader) mcl).findClass(name) : mcl.loadClass(name);
             if (cls != null) {
                 Log.e(TAG, "  Cannot load module, please disable \"Instant Run\" in Android Studio.");
                 return false;

@@ -14,7 +14,7 @@ import java.util.List;
 import top.niunaijun.blackbox.entity.pm.InstallResult;
 import top.niunaijun.blackbox.entity.pm.InstallOption;
 import top.niunaijun.blackbox.entity.pm.InstalledPackage;
-import top.niunaijun.blackbox.core.system.pm.BPackageSettings;
+
 
 interface IBPackageManagerService {
     ResolveInfo resolveService(in Intent intent, int flags, String resolvedType, int userId);
@@ -46,5 +46,4 @@ interface IBPackageManagerService {
     boolean isInstalled(String packageName, int userId);
     List<InstalledPackage> getInstalledPackagesAsUser(int userId);
     String[] getPackagesForUid(int uid, int userId);
-    BPackageSettings getPackageSettings(String packageName, int userId);
 }

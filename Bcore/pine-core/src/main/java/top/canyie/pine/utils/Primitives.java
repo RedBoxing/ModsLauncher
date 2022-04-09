@@ -12,7 +12,9 @@ import top.canyie.pine.Pine;
 /**
  * @author canyie
  */
-@SuppressWarnings("JavaReflectionMemberAccess") @SuppressLint("PrivateApi") public final class Primitives {
+@SuppressWarnings("JavaReflectionMemberAccess")
+@SuppressLint({"PrivateApi", "SoonBlockedPrivateApi"})
+public final class Primitives {
     private static final String TAG = "Primitives";
     private static Class<?> unsafeClass;
     private static Object unsafe;
@@ -27,7 +29,6 @@ import top.canyie.pine.Pine;
         return Pine.currentArtThread0();
     }
 
-    @SuppressLint("SoonBlockedPrivateApi")
     public static void setObjectClass(Object target, Class<?> newClass) {
         if (target.getClass() == newClass) return;
         if (!triedGetShadowKlassField) {
@@ -55,7 +56,6 @@ import top.canyie.pine.Pine;
         }
     }
 
-    @SuppressLint("SoonBlockedPrivateApi")
     public static void setSuperClass(Class<?> target, Class<?> newSuperClass) {
         if (target.getSuperclass() == newSuperClass) return;
         if (superClassField == null) {
@@ -77,7 +77,7 @@ import top.canyie.pine.Pine;
     public static int getFieldOffset(Field field) throws Exception {
         // 1. try Android-specific field
         try {
-            @SuppressLint("SoonBlockedPrivateApi") Field offset = Field.class.getDeclaredField("offset");
+            Field offset = Field.class.getDeclaredField("offset");
             offset.setAccessible(true);
             return offset.getInt(field);
         } catch (Exception ignored) {
@@ -99,7 +99,6 @@ import top.canyie.pine.Pine;
         return (int) objectFieldOffset.invoke(unsafe, field);
     }
 
-    @SuppressLint("DiscouragedPrivateApi")
     public static void removeClassFinalFlag(Class<?> target) {
         if (!Modifier.isFinal(target.getModifiers())) return;
         if (classAccessFlagsField == null) {

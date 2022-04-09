@@ -52,8 +52,8 @@ public class BPackage implements Parcelable {
     public int mVersionCode;
     public ApplicationInfo applicationInfo;
     public String mVersionName;
-    public String codePath;
     public String baseCodePath;
+    public String codePath;
     public String[] splitNames;
     public String[] splitCodePaths;
 
@@ -152,13 +152,11 @@ public class BPackage implements Parcelable {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             this.splitNames = aPackage.splitNames;
             this.codePath = aPackage.codePath;
-            this.baseCodePath = aPackage.baseCodePath;
             this.splitCodePaths = aPackage.splitCodePaths;
         }
     }
 
     protected BPackage(Parcel in) {
-        //this.parsedPackage = in.readParcelable(PackageParser.Package.class.getClassLoader());
         int N = in.readInt();
         this.activities = new ArrayList<>(N);
         while (N-- > 0) {
@@ -247,6 +245,12 @@ public class BPackage implements Parcelable {
         this.configPreferences = in.createTypedArrayList(ConfigurationInfo.CREATOR);
         this.reqFeatures = in.createTypedArrayList(FeatureInfo.CREATOR);
         this.installOption = in.readParcelable(InstallOption.class.getClassLoader());
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            this.splitNames = in.createStringArray();
+            this.codePath = in.readString();
+            this.splitCodePaths = in.createStringArray();
+        }
     }
 
     public final static class Activity extends Component<ActivityIntentInfo> {
@@ -737,6 +741,12 @@ public class BPackage implements Parcelable {
         dest.writeTypedList(this.configPreferences);
         dest.writeTypedList(this.reqFeatures);
         dest.writeParcelable(this.installOption, flags);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            dest.writeStringArray(this.splitNames);
+            dest.writeString(this.codePath);
+            dest.writeStringArray(this.splitCodePaths);
+        }
     }
 
     public static final Parcelable.Creator<BPackage> CREATOR = new Parcelable.Creator<BPackage>() {

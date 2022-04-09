@@ -1,14 +1,9 @@
 package fr.redboxing.mods.modslauncher;
 
 import android.app.AlertDialog;
-import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.pm.PackageParser;
-import android.content.pm.ServiceInfo;
 import android.graphics.*;
-import android.net.Uri;
 import android.os.*;
-import android.provider.Settings;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.ViewGroup;
@@ -83,6 +78,8 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
+        Handler handler = new Handler(getMainLooper());
+
         listView.setOnItemClickListener((parent, view, position, id) -> {
             Mod mod = (Mod) parent.getItemAtPosition(position);
 
@@ -101,8 +98,10 @@ public class MainActivity extends AppCompatActivity {
 
                 this.updateMod(mod, () -> {
                     Toast.makeText(this, "Successfully downloaded " + mod.getName() + " v" + mod.getVersion() + " !", Toast.LENGTH_SHORT).show();
-                    alertDialog.dismiss();
-                    BlackBoxCore.get().launchApk(mod.getPackage(), 0);
+                    handler.post(() -> {
+                        alertDialog.dismiss();
+                        BlackBoxCore.get().launchApk(mod.getPackage(), 0);
+                    });
                 }, () -> {
                     alertDialog.dismiss();
                     Toast.makeText(this, "An error occured while updating mod !", Toast.LENGTH_SHORT).show();
@@ -112,8 +111,10 @@ public class MainActivity extends AppCompatActivity {
 
                 this.updateMod(mod, () -> {
                     Toast.makeText(this, "Successfully updated " + mod.getName() + " v" + mod.getVersion() + " !", Toast.LENGTH_SHORT).show();
-                    alertDialog.dismiss();
-                    BlackBoxCore.get().launchApk(mod.getPackage(), 0);
+                    handler.post(() -> {
+                        alertDialog.dismiss();
+                        BlackBoxCore.get().launchApk(mod.getPackage(), 0);
+                    });
                 }, () -> {
                     alertDialog.dismiss();
                     Toast.makeText(this, "An error occured while updating mod !", Toast.LENGTH_SHORT).show();
@@ -123,8 +124,10 @@ public class MainActivity extends AppCompatActivity {
 
                 updateMod(mod, () -> {
                     Toast.makeText(this, "Launching " + mod.getName() + " v" + mod.getVersion() + " !", Toast.LENGTH_SHORT).show();
-                    alertDialog.dismiss();
-                    BlackBoxCore.get().launchApk(mod.getPackage(), 0);
+                    handler.post(() -> {
+                        alertDialog.dismiss();
+                        BlackBoxCore.get().launchApk(mod.getPackage(), 0);
+                    });
                 }, () -> {
                     Toast.makeText(this, "An error occured while updating mod !", Toast.LENGTH_SHORT).show();
                 });
@@ -139,14 +142,12 @@ public class MainActivity extends AppCompatActivity {
             new Handler(Looper.getMainLooper()).post(() -> {
                 try {
                     if (!BlackBoxCore.get().isInstalled(mod.getPackage(), 0) || !BPackageManager.get().getPackageInfo(mod.getPackage(), 0, 0).versionName.equals(mod.getVersion())) {
-                        InstallResult installResult = BlackBoxCore.get().installPackageAsUser(new File(getPackageManager().getApplicationInfo(mod.getPackage(), 0).sourceDir), 0);
+                        InstallResult installResult = BlackBoxCore.get().installPackageAsUser(mod.getPackage(), 0);
                         if (!installResult.success) {
                             Log.e("MainActivity", installResult.msg);
                             errorCallback.run();
                             return;
                         } else {
-                            callback.run();
-                            return;
                           /*  BPackageSettings ps = BPackageManager.get().getPackageSetting(mod.getPackage(), 0);
                             Log.e("MainActivity", "Package setting: " + ps);
                             Log.e("MainActivity", "Package: " + ps.pkg);

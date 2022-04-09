@@ -697,7 +697,7 @@ public class BPackageManagerService extends IBPackageManagerService.Stub impleme
                 return result.installError(packageArchiveInfo.packageName,
                         msg + (BlackBoxCore.is64Bit() ? " not support armeabi-v7a abi" : "not support arm64-v8a abi"));
             }
-            PackageParser.Package aPackage = parserApk(apkFile.getParentFile().getAbsolutePath());
+            PackageParser.Package aPackage = parserApk(apkFile.getAbsolutePath());
             if (aPackage == null) {
                 return result.installError("parser apk error.");
             }
@@ -818,11 +818,5 @@ public class BPackageManagerService extends IBPackageManagerService.Stub impleme
             mComponentResolver.removeAllComponents(value.pkg);
             mComponentResolver.addAllComponents(value.pkg);
         }
-    }
-
-    @Override
-    public BPackageSettings getPackageSettings(String packageName, int user) {
-        PackageParser.Package pkg = parserApk(new File(getPackageInfo(packageName, 0, user).applicationInfo.sourceDir).getParent());
-        return mSettings.getPackageLPw(packageName, pkg, InstallOption.installByStorage());
     }
 }

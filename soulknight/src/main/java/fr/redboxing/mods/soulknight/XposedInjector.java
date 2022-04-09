@@ -11,6 +11,8 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
+import top.niunaijun.blackbox.BlackBoxCore;
+import top.niunaijun.blackbox.fake.frameworks.BActivityManager;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -48,7 +50,8 @@ public class XposedInjector implements IXposedHookLoadPackage {
                     }
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        ComponentName name = currentActivity.startForegroundService(new Intent(currentActivity, FloatingService.class));
+                        Intent intent = new Intent(BlackBoxCore.getContext(), FloatingService.class);
+                        ComponentName name = BlackBoxCore.getContext().startForegroundService(intent);
                         XposedBridge.log("Starting service " + name);
 
                         // TODO: start service in the app and setup inter-app communication (broadcastreceiver)

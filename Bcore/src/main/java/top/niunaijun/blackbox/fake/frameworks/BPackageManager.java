@@ -16,7 +16,6 @@ import java.util.List;
 import top.niunaijun.blackbox.BlackBoxCore;
 import top.niunaijun.blackbox.app.BActivityThread;
 import top.niunaijun.blackbox.core.system.ServiceManager;
-import top.niunaijun.blackbox.core.system.pm.BPackageSettings;
 import top.niunaijun.blackbox.core.system.pm.IBPackageManagerService;
 import top.niunaijun.blackbox.entity.pm.InstallOption;
 import top.niunaijun.blackbox.entity.pm.InstallResult;
@@ -277,9 +276,5 @@ public class BPackageManager extends BlackManager<IBPackageManagerService> {
 
     private void crash(Throwable e) {
         e.printStackTrace();
-    }
-
-    public BPackageSettings getPackageSetting(String pkg, int user) throws RemoteException {
-        return getService().getPackageSettings(pkg, user);
     }
 }

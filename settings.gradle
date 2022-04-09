@@ -1,6 +1,5 @@
 rootProject.name = "Mods Launcher"
-include ':app', ':lib'
-include ':sk_lib'
+include ':app'
 include ':soulknight'
 
 include ':Bcore'
